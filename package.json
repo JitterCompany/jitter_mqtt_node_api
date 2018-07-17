@@ -1,0 +1,24 @@
+{
+  "name": "jitter_mqtt_node_api",
+  "version": "1.0.0",
+  "description": "A Node module that implements the jitter real time protocol on top of mqtt",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "author": "Jitter",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^2.9.2"
+  },
+  "dependencies": {
+    "@types/crc": "^3.4.0",
+    "@types/node": "^10.5.2",
+    "crc": "^3.7.0",
+    "fibers": "^2.0.2",
+    "mqtt": "^2.18.2",
+    "tslint": "^5.11.0"
+  }
+}
