@@ -221,9 +221,8 @@ export abstract class MQTTWorker {
         if (this.isVerified(item.topic)) {
           const topicFuncName = item.topic.replace('/', '_');
           // only call topic handler function if it exists
-          const handler = this['topic_' + topicFuncName];
-          if (handler) {
-            handler(item.payload);
+          if (this['topic_' + topicFuncName]) {
+            this['topic_' + topicFuncName].call(this, item.payload);
           } else {
             console.error(`unknown topic: ${item.topic}`);
           }

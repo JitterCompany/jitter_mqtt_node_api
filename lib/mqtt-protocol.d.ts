@@ -69,3 +69,4 @@ export declare abstract class MQTTWorker {
     protected fixedDataReceiveHandler(topic: string, payload: Buffer): Buffer | undefined;
 }
 export {};
+//# sourceMappingURL=mqtt-protocol.d.ts.map

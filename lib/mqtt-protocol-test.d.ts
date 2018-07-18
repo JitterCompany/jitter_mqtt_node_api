@@ -33,3 +33,4 @@ export declare class MQTTTest {
 }
 export declare function runTests(sendFunc: Function): MQTTTest;
 export {};
+//# sourceMappingURL=mqtt-protocol-test.d.ts.map
