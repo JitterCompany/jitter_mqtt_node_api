@@ -1,11 +1,13 @@
 import * as mqtt from 'mqtt';
 import { PBKDF2, algo, enc } from 'crypto-js';
 import { MQTTClient } from './mqtt.model';
+import { MQTTWorker } from './mqtt-protocol';
 
 
 const SERVER_MQTT_PASSWORD = 'YjqoqvjGZ8ktu*sKc&LZ@2tr9s3UYf';
 const SERVER_MQTT_USERNAME = 'server';
 const ANON_MQTT_USERNAME = 'anon';
+const MAX_PACKET_SIZE = 1024; // bytes
 
 const STANDARD_TOPICS = [
   'f/+/register',
@@ -20,16 +22,48 @@ const TEST_TOPICS = [
   'f/+/selftest'
 ]
 
+export interface TopicReturnDescriptor {
+  topicname: string,
+  message: Buffer
+}
+
+type TopicReturnMessage = string | Buffer | TopicReturnDescriptor[] | undefined | void;
+
+export declare type TopicHandler = (username: string, payload?: Buffer) => TopicReturnMessage;
+export declare type TopicHandlerWorker = (username: string, payload?: Buffer, worker?: MQTTWorker) => TopicReturnMessage;
+type TopicType = "fixeddata" | "normal";
+
+export interface TopicDescriptor {
+  topicName: string;
+  type?: TopicType;
+}
+
+export interface TopicMap {
+  [topicName: string]: TopicHandlerWorker
+}
+
+export interface TopicHandlers {
+  topic_hi: (username: string, wantsOffline: boolean) => boolean;
+  topic_bye: TopicHandler;
+  topic_register: TopicHandler;
+  topic_verify: TopicHandler;
+  topic_list: TopicDescriptor[];
+}
+
 export class MQTTAPI {
 
   private mqtt_client: mqtt.MqttClient;
+  private topicMap: TopicMap;
+  private workers: {[username: string]: MQTTWorker} = {};
 
   constructor(
     private clientCollection: Mongo.Collection<{}>,
     private topicCollection: Mongo.Collection<{}>,
-    broker_url: string
+    broker_url: string,
+    private handlers: TopicHandlers
   ) {
 
+    this.createHandlerMap(handlers);
     this.prepareBrokerDatabase();
 
     const options: mqtt.IClientOptions = {
@@ -42,6 +76,97 @@ export class MQTTAPI {
     this.mqtt_client.on('connect', () => console.log('connected to broker'));
     this.mqtt_client.on('reconnect', () => console.log('reconnected to broker'));
     this.mqtt_client.on('close', () => console.log('disconnected from broker'));
+
+    const topics = Object.keys(this.topicMap).map(t => 'f/+/' + t);
+
+    this.mqtt_client.subscribe(topics,
+      function (error, g: mqtt.ISubscriptionGrant[]) {
+        console.log('registered on topics:');
+        console.log(g.map(gg => gg.topic));
+      });
+      this.mqtt_client.on('message', (topic, message) => this.topicDispatch(topic, message));
+  }
+
+
+
+  private getWorker(username: string) {
+    if (!this.workers[username]) {
+      this.workers[username] = new MQTTWorker(username, this.mqtt_client, MAX_PACKET_SIZE);
+    }
+    return this.workers[username];
+  }
+
+  private topicDispatch(topic: string, message: Buffer) {
+    const m = topic.match('f\/([^\/]*)\/(.*)');
+    if (m) {
+      const username = m[1];
+      const topicname = m[2];
+      const worker = this.getWorker(username);
+      if (worker) {
+        const handler = this.topicMap[topicname];
+        if (handler) {
+          worker.addTask(handler, message);
+        } else {
+          console.error(`No handler for topic '${topicname}'. Username: '${username}'.`);
+        }
+      } else {
+        console.error(`No worker for username ${username}`);
+      }
+    } else {
+      console.warn(`Unmatched topic: ${topic}`);
+    }
+  }
+
+  public hi_protocol_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+    if (!payload.byteLength) {
+      return;
+    }
+    const msg = payload.readUInt8(0);
+    const wantsOffline = msg === 0;
+    const shouldOffline = this.handlers.topic_hi(username, wantsOffline);
+
+    const done = worker.allTransfersFinished() && shouldOffline;
+    console.log('can offline: ', done);
+    const r = new Buffer(1);
+    r.writeUInt8(+done, 0);
+    this.mqtt_client.publish(`t/${username}/hi`, r);
+  }
+
+  private createHandlerMap(handlers: TopicHandlers) {
+    this.topicMap = {
+      'register': handlers.topic_register,
+      'verify': handlers.topic_verify,
+      'hi': this.hi_protocol_handler,
+      'bye': handlers.topic_bye,
+      'fixeddatatest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest(payload),
+      'fixeddatatest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest_ack(payload),
+      'acktest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest(payload),
+      'acktest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest_ack(payload),
+      'selftest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload)
+    };
+
+    handlers.topic_list.forEach(topic_desc => {
+
+      const handler: TopicHandler = handlers['topic_' +  topic_desc.topicName];
+      let wrapped_handler;
+      if (!handler) {
+        throw new Error(`no handler for topic [${topic_desc.topicName}]`);
+      }
+
+      if (topic_desc.type && topic_desc.type === 'fixeddata') {
+        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+          const topic = `f/${username}/${topic_desc.topicName}`;
+          const data = worker.fixedDataReceiveHandler(topic, payload);
+          if (data) {
+            handler(username, data);
+          }
+        }
+      } else {
+        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => handler(username, payload);
+      }
+
+      this.topicMap[topic_desc.topicName] = wrapped_handler;
+    });
   }
 
   private prepareBrokerDatabase() {

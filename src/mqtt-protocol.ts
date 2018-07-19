@@ -2,6 +2,7 @@ import * as mqtt from 'mqtt';
 const Fiber = require('fibers');
 import { runTests, MQTTTest, MQTTAckTest } from './mqtt-protocol-test';
 import { checkCRC32, createFixedDataPacket, getAckTopicName } from './mqtt.utils';
+import { TopicHandlerWorker } from './api';
 
 const MAX_TRANSFER_RETRIES = 5;
 
@@ -69,7 +70,7 @@ class FixedDataSendState {
 
 }
 interface WorkerTask {
-  topic: string;
+  handler: TopicHandlerWorker
   payload: Buffer;
 }
 
@@ -79,7 +80,7 @@ interface WorkerTask {
  * This class can be subclassed to create a specific
  * Jitter MQTT DataProtocol object
  */
-export abstract class MQTTWorker {
+export class MQTTWorker {
 
   queue: WorkerTask[] = [];
   workerRunning = false;
@@ -99,10 +100,13 @@ export abstract class MQTTWorker {
    * in this system. This member function must be implemented by
    * the subclass.
    */
-  protected abstract isVerified(topicName?: string): boolean;
+  protected isVerified(topicName?: string): boolean {
+    // TODO
+    return true;
+  }
 
 
-  protected allTransfersFinished() {
+  public allTransfersFinished() {
     let done = true;
     this.topicSendState.forEach((val, key) => {
       if (!val.tranfser_finished()) {
@@ -145,13 +149,39 @@ export abstract class MQTTWorker {
     return true;
   }
 
+    /**
+   * Topic for receiving testdata when (dummy) sensor is
+   * testing server fixed data protocol implementation
+   * @param payload
+   */
+  public topic_fixeddatatest(payload: Buffer) {
+
+    const topic = `f/${this.username}/fixeddatatest`;
+    const data = this.fixedDataReceiveHandler(topic, payload);
+    if (data) {
+      console.log('received data of length: ', data.byteLength);
+    }
+  }
+
+    /**
+   * Topic for receiving tests from sensor when server is testing
+   * sensor fixed data protocol implementation
+   * @param payload
+   */
+  public topic_fixeddatatest_ack(payload: Buffer) {
+    const topic = `t/${this.username}/fixeddatatest`;
+    const done = this.fixedDataAckHandler(topic, payload);
+    if (done) {
+      console.log('file transfer done');
+    }
+  }
 
   /**
    * Starts a test routine to test the protocol implementation for the
    * client that requests it.
    * @param payload
    */
-  protected topic_selftest(payload: Buffer) {
+  public topic_selftest(payload: Buffer) {
     this.test = undefined;
     const topic = `t/${this.username}/fixeddatatest`;
     if (!this.getSendState(topic)) {
@@ -163,12 +193,12 @@ export abstract class MQTTWorker {
     }
   }
 
-  protected topic_acktest_ack(payload: Buffer) {
+  public topic_acktest_ack(payload: Buffer) {
     const topic = `t/${this.username}/acktest`;
     this.fixedDataAckHandler(topic, payload);
   }
 
-  protected topic_acktest(payload: Buffer) {
+  public topic_acktest(payload: Buffer) {
     if (!this.ackTest) {
       this.ackTest = new MQTTAckTest();
     }
@@ -192,8 +222,8 @@ export abstract class MQTTWorker {
     }
   }
 
-  public addTask(topic_in: string, payload_in: Buffer) {
-    this.queue.push({topic: topic_in, payload: payload_in});
+  public addTask(topicHandler: TopicHandlerWorker, payload_in: Buffer) {
+    this.queue.push({handler: topicHandler, payload: payload_in});
 
     if (this.workerRunning) {
       return;
@@ -218,16 +248,18 @@ export abstract class MQTTWorker {
           processNext();
         };
 
-        if (this.isVerified(item.topic)) {
-          const topicFuncName = item.topic.replace('/', '_');
+        // TODO verify
+        if (this.isVerified('')) {
+          // const topicFuncName = item.topic.replace('/', '_');
           // only call topic handler function if it exists
-          if (this['topic_' + topicFuncName]) {
-            this['topic_' + topicFuncName].call(this, item.payload);
-          } else {
-            console.error(`unknown topic: ${item.topic}`);
-          }
+          item.handler(this.username, item.payload, this);
+          // if (this['topic_' + topicFuncName]) {
+          //   this['topic_' + topicFuncName].call(this, item.payload);
+          // } else {
+          //   console.error(`unknown topic: ${item.topic}`);
+          // }
         } else {
-          console.error(`username ${this.username} without sensor object (topic '${item.topic}')`);
+          console.error(`username ${this.username} not verified`);
         }
 
         unblock(); // in case the handler didn't already do it
@@ -238,7 +270,7 @@ export abstract class MQTTWorker {
 
   }
 
-  protected fixedDataProgessHandler(topic: string, payload: Buffer) {
+  public fixedDataProgessHandler(topic: string, payload: Buffer) {
 
     const state = this.getSendState(topic);
     if (payload.byteLength) {
@@ -251,7 +283,7 @@ export abstract class MQTTWorker {
     return 0;
   }
 
-  protected fixedDataAckHandler(topic: string, payload: Buffer) {
+  public fixedDataAckHandler(topic: string, payload: Buffer) {
     const ack = payload.readUInt16LE(0);
 
     const state =  this.topicSendState.get(topic);
@@ -295,7 +327,7 @@ export abstract class MQTTWorker {
     return done;
   }
 
-  protected fixedDataReceiveHandler(topic: string, payload: Buffer): Buffer | undefined {
+  public fixedDataReceiveHandler(topic: string, payload: Buffer): Buffer | undefined {
     const state = this.getReceiveState(topic);
 
     const packet_number = payload.readUInt16LE(0);
