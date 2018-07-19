@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import * as mqtt from 'mqtt';
+import { MQTTClient, MQTTTopic } from './mqtt.model';
 import { MQTTWorker } from './mqtt-protocol';
 export interface TopicReturnDescriptor {
     topicname: string;
@@ -19,7 +19,7 @@ export interface TopicMap {
 export interface TopicHandlers {
     topic_hi: (username: string, wantsOffline: boolean) => boolean;
     topic_bye: TopicHandler;
-    topic_register: TopicHandler;
+    topic_register: (username: string, clientID: string) => void;
     topic_verify: TopicHandler;
     topic_list: TopicDescriptor[];
 }
@@ -30,13 +30,20 @@ export declare class MQTTAPI {
     private mqtt_client;
     private topicMap;
     private workers;
-    constructor(clientCollection: Mongo.Collection<{}>, topicCollection: Mongo.Collection<{}>, broker_url: string, handlers: TopicHandlers);
+    constructor(clientCollection: Mongo.Collection<MQTTClient>, topicCollection: Mongo.Collection<MQTTTopic>, broker_url: string, handlers: TopicHandlers);
     private getWorker;
     private topicDispatch;
     hi_protocol_handler: (username: string, payload: Buffer, worker: MQTTWorker) => void;
+    register_protocol_handler: (clientID: string) => void;
+    private verify_protocol_handler;
     private createHandlerMap;
     private prepareBrokerDatabase;
-    getClient(): mqtt.MqttClient;
+    insertNewClient(clientID: string, credentials: any): void;
 }
+export declare function newMQttLoginCredentials(): {
+    username: string;
+    password: string;
+    random: string;
+};
 export {};
 //# sourceMappingURL=api.d.ts.map

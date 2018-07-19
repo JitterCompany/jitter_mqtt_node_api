@@ -1,11 +1,14 @@
 import * as mqtt from 'mqtt';
 import { PBKDF2, algo, enc } from 'crypto-js';
-import { MQTTClient } from './mqtt.model';
+import { MQTTClient, MQTTTopic } from './mqtt.model';
 import { MQTTWorker } from './mqtt-protocol';
+import * as crypto from 'crypto';
 
 
-const SERVER_MQTT_PASSWORD = 'YjqoqvjGZ8ktu*sKc&LZ@2tr9s3UYf';
-const SERVER_MQTT_USERNAME = 'server';
+function randomSecret(n: number) {
+  return crypto.randomBytes(n).toString('hex');
+}
+
 const ANON_MQTT_USERNAME = 'anon';
 const MAX_PACKET_SIZE = 1024; // bytes
 
@@ -45,7 +48,7 @@ export interface TopicMap {
 export interface TopicHandlers {
   topic_hi: (username: string, wantsOffline: boolean) => boolean;
   topic_bye: TopicHandler;
-  topic_register: TopicHandler;
+  topic_register: (username: string, clientID: string) => void;
   topic_verify: TopicHandler;
   topic_list: TopicDescriptor[];
 }
@@ -57,20 +60,20 @@ export class MQTTAPI {
   private workers: {[username: string]: MQTTWorker} = {};
 
   constructor(
-    private clientCollection: Mongo.Collection<{}>,
-    private topicCollection: Mongo.Collection<{}>,
+    private clientCollection: Mongo.Collection<MQTTClient>,
+    private topicCollection: Mongo.Collection<MQTTTopic>,
     broker_url: string,
     private handlers: TopicHandlers
   ) {
 
     this.createHandlerMap(handlers);
-    this.prepareBrokerDatabase();
 
     const options: mqtt.IClientOptions = {
-      username: SERVER_MQTT_USERNAME,
-      password: SERVER_MQTT_PASSWORD,
+      username: randomSecret(10),
+      password: randomSecret(30),
     };
 
+    this.prepareBrokerDatabase(options);
 
     this.mqtt_client = mqtt.connect(broker_url, options);
     this.mqtt_client.on('connect', () => console.log('connected to broker'));
@@ -132,10 +135,59 @@ export class MQTTAPI {
     this.mqtt_client.publish(`t/${username}/hi`, r);
   }
 
+  public register_protocol_handler = (clientID: string) => {
+    const prefix = 'client-';
+    if (clientID.startsWith(prefix)) {
+      const id = clientID.slice(prefix.length);
+      const clients = this.clientCollection.find({clientID: id}).fetch();
+      if (clients.length) {
+        const client = clients[0];
+        if (client.verified) {
+          // already registerd..
+          console.error(`clientID [${clientID}] already exists and registed`);
+          this.mqtt_client.publish(`t/${clientID}/register`, JSON.stringify({ 'error': 'already registered' }));
+          return;
+        }
+        console.log('re-register for client:', clientID);
+        this.clientCollection.remove({clientID: clientID});
+      }
+      console.log('register for client:', clientID);
+      const login = newMQttLoginCredentials();
+      this.insertNewClient(clientID, login);
+      this.handlers.topic_register(login.username, clientID);
+      this.mqtt_client.publish(`t/${clientID}/register`, JSON.stringify(login));
+    } else {
+      this.mqtt_client.publish(`t/${clientID}/register`, JSON.stringify({ 'error': 'invalid request' }));
+      console.error(`Invalid clientID [${clientID}]: does not start with [${prefix}]`);
+    }
+  }
+
+  private verify_protocol_handler = (username: string) => {
+    const client = this.clientCollection.findOne(username);
+    if (client) {
+      if (!client.verified) {
+        this.clientCollection.update(username, {
+          $set: {
+            verified: true
+          }
+        });
+      }
+      // Send confirmation when registered succesfully,
+      // also when already registered, since previous confirmation
+      // may have been lost.
+      console.log('send confirm register on', `t/${username}/verify`);
+      this.mqtt_client.publish(`t/${username}/verify`, '');
+
+      this.handlers.topic_verify(username);
+    } else {
+      console.error(`username ${username} not associated with sensor`);
+    }
+  }
+
   private createHandlerMap(handlers: TopicHandlers) {
     this.topicMap = {
-      'register': handlers.topic_register,
-      'verify': handlers.topic_verify,
+      'register': this.register_protocol_handler,
+      'verify': this.verify_protocol_handler,
       'hi': this.hi_protocol_handler,
       'bye': handlers.topic_bye,
       'fixeddatatest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest(payload),
@@ -169,21 +221,25 @@ export class MQTTAPI {
     });
   }
 
-  private prepareBrokerDatabase() {
+  private prepareBrokerDatabase(options: mqtt.IClientOptions) {
 
     console.log('Adding server as mqtt client');
     // TODO: can be random password everytime
     const server: MQTTClient = {
-      _id: SERVER_MQTT_USERNAME,
+      _id: options.username,
       topics: 'server',
-      password: password_encoding(SERVER_MQTT_PASSWORD)
+      password: password_encoding(options.password),
+      clientID: 'server',
+      verified: true,
     };
-    this.clientCollection.upsert(SERVER_MQTT_USERNAME, server);
+    this.clientCollection.upsert(options.username, server);
 
     console.log('Adding anon as mqtt client');
     const anon: MQTTClient = {
       _id: ANON_MQTT_USERNAME,
       topics: 'anon',
+      clientID: 'anon',
+      verified: true,
     };
     this.clientCollection.upsert(ANON_MQTT_USERNAME, anon);
 
@@ -201,13 +257,20 @@ export class MQTTAPI {
     });
   }
 
-  getClient() {
-    return this.mqtt_client;
+  insertNewClient(clientID: string, credentials) {
+    const newClient: MQTTClient = {
+      _id: credentials.username,
+      password: password_encoding(credentials.password),
+      topics: 'sensor',
+      clientID: clientID,
+      verified: false
+    };
+    this.clientCollection.insert(newClient);
   }
 }
 
 function password_encoding(password: string) {
-  const salt = 'abcdefghijkalsdfkj'; // TODO: replace with e.g.: Random.secret(20);
+  const salt = randomSecret(20);
   const iterations = 1;
   const word = PBKDF2(password, salt, { keySize: 512 / 32, hasher: algo.SHA256, iterations });
   const hash = enc.Base64.stringify(word);
@@ -215,16 +278,10 @@ function password_encoding(password: string) {
   return pw_store;
 }
 
-// export function newMQttLoginCredentials() {
-//   const password = Random.secret(16);
-//   const random = Random.secret(48);
-//   const username = Random.secret(4);
-//   const newClient: MQTTClient = {
-//     _id: username,
-//     password: password_encoding(password),
-//     topics: 'sensor'
-//   };
-//   MQTTClientsCollection.collection.insert(newClient);
+export function newMQttLoginCredentials() {
+  const password = randomSecret(16);
+  const random = randomSecret(48);
+  const username = randomSecret(4);
 
-//   return { username, password, random };
-// }
+  return { username, password, random };
+}
