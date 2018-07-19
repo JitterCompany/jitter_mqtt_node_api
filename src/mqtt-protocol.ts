@@ -82,10 +82,10 @@ interface WorkerTask {
  */
 export class MQTTWorker {
 
-  queue: WorkerTask[] = [];
-  workerRunning = false;
-  topicReceiveState: Map<string, FixedDataReceiveState> = new Map();
-  topicSendState: Map<string, FixedDataSendState> = new Map();
+  private queue: WorkerTask[] = [];
+  private workerRunning = false;
+  private topicReceiveState: Map<string, FixedDataReceiveState> = new Map();
+  private topicSendState: Map<string, FixedDataSendState> = new Map();
   protected test: MQTTTest | undefined;
   protected ackTest: MQTTAckTest | undefined;
 
@@ -94,17 +94,6 @@ export class MQTTWorker {
     protected mqtt_client: mqtt.MqttClient,
     protected max_packet_size: number
   ) {}
-
-  /**
-   * Returns whether current mqtt user has a verified account
-   * in this system. This member function must be implemented by
-   * the subclass.
-   */
-  protected isVerified(topicName?: string): boolean {
-    // TODO
-    return true;
-  }
-
 
   public allTransfersFinished() {
     let done = true;
@@ -248,19 +237,7 @@ export class MQTTWorker {
           processNext();
         };
 
-        // TODO verify
-        if (this.isVerified('')) {
-          // const topicFuncName = item.topic.replace('/', '_');
-          // only call topic handler function if it exists
-          item.handler(this.username, item.payload, this);
-          // if (this['topic_' + topicFuncName]) {
-          //   this['topic_' + topicFuncName].call(this, item.payload);
-          // } else {
-          //   console.error(`unknown topic: ${item.topic}`);
-          // }
-        } else {
-          console.error(`username ${this.username} not verified`);
-        }
+        item.handler(this.username, item.payload, this);
 
         unblock(); // in case the handler didn't already do it
       }).run();

@@ -25,6 +25,8 @@ const TEST_TOPICS = [
   'f/+/selftest'
 ]
 
+const topicWhitelist = ['register', 'verify'];
+
 export interface TopicReturnDescriptor {
   topicname: string,
   message: Buffer
@@ -49,7 +51,7 @@ export interface TopicHandlers {
   topic_hi: (username: string, wantsOffline: boolean) => boolean;
   topic_bye: TopicHandler;
   topic_register: (username: string, clientID: string) => void;
-  topic_verify: TopicHandler;
+  topic_verify: (username: string) => void;
   topic_list: TopicDescriptor[];
 }
 
@@ -90,8 +92,6 @@ export class MQTTAPI {
       this.mqtt_client.on('message', (topic, message) => this.topicDispatch(topic, message));
   }
 
-
-
   private getWorker(username: string) {
     if (!this.workers[username]) {
       this.workers[username] = new MQTTWorker(username, this.mqtt_client, MAX_PACKET_SIZE);
@@ -105,15 +105,11 @@ export class MQTTAPI {
       const username = m[1];
       const topicname = m[2];
       const worker = this.getWorker(username);
-      if (worker) {
-        const handler = this.topicMap[topicname];
-        if (handler) {
-          worker.addTask(handler, message);
-        } else {
-          console.error(`No handler for topic '${topicname}'. Username: '${username}'.`);
-        }
+      const handler = this.topicMap[topicname];
+      if (worker && handler) {
+        worker.addTask(handler, message);
       } else {
-        console.error(`No worker for username ${username}`);
+        console.error(`No worker or handler for topic '${topicname}'. Username: '${username}'.`);
       }
     } else {
       console.warn(`Unmatched topic: ${topic}`);
@@ -224,7 +220,6 @@ export class MQTTAPI {
   private prepareBrokerDatabase(options: mqtt.IClientOptions) {
 
     console.log('Adding server as mqtt client');
-    // TODO: can be random password everytime
     const server: MQTTClient = {
       _id: options.username,
       topics: 'server',

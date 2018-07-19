@@ -20,7 +20,7 @@ export interface TopicHandlers {
     topic_hi: (username: string, wantsOffline: boolean) => boolean;
     topic_bye: TopicHandler;
     topic_register: (username: string, clientID: string) => void;
-    topic_verify: TopicHandler;
+    topic_verify: (username: string) => void;
     topic_list: TopicDescriptor[];
 }
 export declare class MQTTAPI {
@@ -32,6 +32,7 @@ export declare class MQTTAPI {
     private workers;
     constructor(clientCollection: Mongo.Collection<MQTTClient>, topicCollection: Mongo.Collection<MQTTTopic>, broker_url: string, handlers: TopicHandlers);
     private getWorker;
+    private clientIsVerified;
     private topicDispatch;
     hi_protocol_handler: (username: string, payload: Buffer, worker: MQTTWorker) => void;
     register_protocol_handler: (clientID: string) => void;

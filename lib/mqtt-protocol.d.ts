@@ -24,10 +24,6 @@ declare class FixedDataSendState {
     tranfser_finished(): boolean;
     retry(): boolean;
 }
-interface WorkerTask {
-    handler: TopicHandlerWorker;
-    payload: Buffer;
-}
 /**
  * MQTTWorker base class
  *
@@ -38,10 +34,11 @@ export declare class MQTTWorker {
     protected username: string;
     protected mqtt_client: mqtt.MqttClient;
     protected max_packet_size: number;
-    queue: WorkerTask[];
-    workerRunning: boolean;
-    topicReceiveState: Map<string, FixedDataReceiveState>;
-    topicSendState: Map<string, FixedDataSendState>;
+    verified: boolean | undefined;
+    private queue;
+    private workerRunning;
+    private topicReceiveState;
+    private topicSendState;
     protected test: MQTTTest | undefined;
     protected ackTest: MQTTAckTest | undefined;
     constructor(username: string, mqtt_client: mqtt.MqttClient, max_packet_size: number);
