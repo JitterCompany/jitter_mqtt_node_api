@@ -1,13 +1,9 @@
-import * as mqtt from 'mqtt';
 import { PBKDF2, algo, enc } from 'crypto-js';
-import { MQTTClient, MQTTTopic } from './mqtt.model';
-import { MQTTWorker } from './mqtt-protocol';
+import * as mqtt from 'mqtt';
 import * as crypto from 'crypto';
 
-
-function randomSecret(n: number) {
-  return crypto.randomBytes(n).toString('hex');
-}
+import { MQTTClient, MQTTTopic, TopicReturnMessage, TopicHandlers, TopicHandler } from './mqtt.model';
+import { MQTTWorker } from './mqtt-protocol';
 
 const ANON_MQTT_USERNAME = 'anon';
 const MAX_PACKET_SIZE = 1024; // bytes
@@ -23,42 +19,19 @@ const TEST_TOPICS = [
   'f/+/fixeddatatest/#',
   'f/+/acktest/#',
   'f/+/selftest'
-]
+];
 
-const topicWhitelist = ['register', 'verify'];
 
-export interface TopicReturnDescriptor {
-  topicname: string,
-  message: Buffer
+function randomSecret(n: number) {
+  return crypto.randomBytes(n).toString('hex');
 }
 
-type TopicReturnMessage = string | Buffer | TopicReturnDescriptor[] | undefined | void;
-
-export declare type TopicHandler = (username: string, payload?: Buffer) => TopicReturnMessage;
 export declare type TopicHandlerWorker = (username: string, payload?: Buffer, worker?: MQTTWorker) => TopicReturnMessage;
-type TopicType = "fixeddata" | "normal";
-
-export interface TopicDescriptor {
-  topicName: string;
-  type?: TopicType;
-}
-
-export interface TopicMap {
-  [topicName: string]: TopicHandlerWorker
-}
-
-export interface TopicHandlers {
-  topic_hi: (username: string, wantsOffline: boolean) => boolean;
-  topic_bye: TopicHandler;
-  topic_register: (username: string, clientID: string) => void;
-  topic_verify: (username: string) => void;
-  topic_list: TopicDescriptor[];
-}
 
 export class MQTTAPI {
 
   private mqtt_client: mqtt.MqttClient;
-  private topicMap: TopicMap;
+  private topicMap: {[topicName: string]: TopicHandlerWorker};
   private workers: {[username: string]: MQTTWorker} = {};
 
   constructor(
@@ -71,7 +44,7 @@ export class MQTTAPI {
     this.createHandlerMap(handlers);
 
     const options: mqtt.IClientOptions = {
-      username: randomSecret(10),
+      username: 'server',
       password: randomSecret(30),
     };
 

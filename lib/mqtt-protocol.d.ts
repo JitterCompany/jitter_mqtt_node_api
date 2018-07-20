@@ -25,16 +25,15 @@ declare class FixedDataSendState {
     retry(): boolean;
 }
 /**
- * MQTTWorker base class
+ * MQTTWorker class
  *
- * This class can be subclassed to create a specific
- * Jitter MQTT DataProtocol object
+ * This class implements queueing and executing topic handlers within a Fiber, as well as handling of
+ * the FixedData protocol.
  */
 export declare class MQTTWorker {
     protected username: string;
     protected mqtt_client: mqtt.MqttClient;
     protected max_packet_size: number;
-    verified: boolean | undefined;
     private queue;
     private workerRunning;
     private topicReceiveState;
@@ -42,28 +41,22 @@ export declare class MQTTWorker {
     protected test: MQTTTest | undefined;
     protected ackTest: MQTTAckTest | undefined;
     constructor(username: string, mqtt_client: mqtt.MqttClient, max_packet_size: number);
-    /**
-     * Returns whether current mqtt user has a verified account
-     * in this system. This member function must be implemented by
-     * the subclass.
-     */
-    protected isVerified(topicName?: string): boolean;
     allTransfersFinished(): boolean;
     protected getReceiveState(topic: string): FixedDataReceiveState;
     protected getSendState(topic: string): FixedDataSendState | undefined;
     protected createSendTransfer(topic: string, data: any): void;
     protected sendPackets(topic: string, packets: Buffer[]): boolean;
     /**
-   * Topic for receiving testdata when (dummy) sensor is
-   * testing server fixed data protocol implementation
-   * @param payload
-   */
+     * Topic for receiving testdata when (dummy) sensor is
+     * testing server fixed data protocol implementation
+     * @param payload
+     */
     topic_fixeddatatest(payload: Buffer): void;
     /**
-   * Topic for receiving tests from sensor when server is testing
-   * sensor fixed data protocol implementation
-   * @param payload
-   */
+     * Topic for receiving tests from sensor when server is testing
+     * sensor fixed data protocol implementation
+     * @param payload
+     */
     topic_fixeddatatest_ack(payload: Buffer): void;
     /**
      * Starts a test routine to test the protocol implementation for the

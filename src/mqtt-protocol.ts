@@ -75,10 +75,10 @@ interface WorkerTask {
 }
 
 /**
- * MQTTWorker base class
+ * MQTTWorker class
  *
- * This class can be subclassed to create a specific
- * Jitter MQTT DataProtocol object
+ * This class implements queueing and executing topic handlers within a Fiber, as well as handling of
+ * the FixedData protocol.
  */
 export class MQTTWorker {
 
@@ -138,7 +138,7 @@ export class MQTTWorker {
     return true;
   }
 
-    /**
+  /**
    * Topic for receiving testdata when (dummy) sensor is
    * testing server fixed data protocol implementation
    * @param payload
@@ -152,7 +152,7 @@ export class MQTTWorker {
     }
   }
 
-    /**
+  /**
    * Topic for receiving tests from sensor when server is testing
    * sensor fixed data protocol implementation
    * @param payload
