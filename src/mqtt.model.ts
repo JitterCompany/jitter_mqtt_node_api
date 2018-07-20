@@ -48,7 +48,7 @@ export interface TopicHandlers {
   topic_hi: (username: string, wantsOffline: boolean) => boolean;
   topic_bye: TopicHandler;
   topic_register: (username: string, clientID: string) => void;
-  topic_verify: (username: string) => void;
+  topic_verify: (username: string, clientID: string) => void;
   topic_list: TopicDescriptor[];
 }
 

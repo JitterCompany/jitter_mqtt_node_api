@@ -45,7 +45,7 @@ export namespace utils {
   }
 
   export function randomSecret(n: number) {
-    return crypto.randomBytes(n).toString('hex');
+    return crypto.randomBytes(n).toString('base64').slice(0, n);
   }
 
   export function password_encoding(password: string) {

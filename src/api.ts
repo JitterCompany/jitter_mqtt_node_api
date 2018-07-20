@@ -245,7 +245,7 @@ export class MQTTAPI {
       console.log('send confirm register on', `t/${username}/verify`);
       this.mqtt_client.publish(`t/${username}/verify`, '');
 
-      this.handlers.topic_verify(username);
+      this.handlers.topic_verify(username, client.clientID);
     } else {
       console.error(`username ${username} not associated with sensor`);
     }
