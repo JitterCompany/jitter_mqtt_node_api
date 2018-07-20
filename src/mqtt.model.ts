@@ -18,7 +18,7 @@ export interface MQTTClient {
  *
  * Permissions can be: `w`, `r`, `rw`
  */
-type TopicMap = Map<string, string>;
+export type TopicMap = Map<string, string>;
 
 /**
  * The MQTTTopic interface is needed for the Topic (Mongo) Collection.  This collection contains the permissions for each role.
@@ -30,7 +30,7 @@ export interface MQTTTopic {
   topics: TopicMap;
 }
 
-export declare type TopicHandler = (username: string, payload?: Buffer) => TopicReturnMessage;
+export type TopicHandler = (username: string, payload?: Buffer) => TopicReturnMessage;
 
 /**
  * TopicHandlers interface needs to be implemented by an object that is passed to
@@ -56,7 +56,7 @@ export interface TopicHandlers {
  * TopicType for specifying the used protocol on each topic.
  * See `TopicDescriptor` for more information.
  */
-type TopicType = "fixeddata" | "normal";
+export type TopicType = "fixeddata" | "normal";
 
 /**
  * TopicDescriptor tells the API in what way incomming messages should be processed.
