@@ -1,4 +1,4 @@
-import { createFixedDataPacket } from './mqtt.utils';
+import { utils } from './utils';
 
 interface MQTTTestStage {
   packets: Buffer[];
@@ -154,7 +154,7 @@ export function runTests(sendFunc: Function) {
 function test0_normal() {
 
   const test_str = 'TestData';
-  const data = createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
+  const data = utils.createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
   return {
     title: 'Test 0 normal',
     stages: [
@@ -168,8 +168,8 @@ function test0_normal() {
 function test1a_skip() {
 
   const test_str = 'TestData';
-  const data1 = createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
-  const data2 = createFixedDataPacket(new Buffer(test_str.repeat(6)), 8);
+  const data1 = utils.createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
+  const data2 = utils.createFixedDataPacket(new Buffer(test_str.repeat(6)), 8);
   data1.splice(2, 1);
   return {
     title: 'Test 1a skip and reset',
@@ -190,7 +190,7 @@ function test1b_skip() {
 
   const test_str = 'TestData';
 
-  const data = createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
+  const data = utils.createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
   const data1 = [...data.slice(0, 2), ...data.slice(3)];
   const data2 = data.slice(2);
   data1.splice(2, 1);
@@ -211,8 +211,8 @@ function test1b_skip() {
 function test2_early_restart() {
 
   const test_str = 'TestData';
-  const data1 = createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
-  const data2 = createFixedDataPacket(new Buffer(test_str.repeat(3)), 8);
+  const data1 = utils.createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
+  const data2 = utils.createFixedDataPacket(new Buffer(test_str.repeat(3)), 8);
   const data = data1.slice(0, 2).concat(data2);
   return {
     title: 'Test 2 early restart',
@@ -227,8 +227,8 @@ function test2_early_restart() {
 function test3_change_length() {
 
   const test_str = 'TestData';
-  const data_short = createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
-  const data_long = createFixedDataPacket(new Buffer(test_str.repeat(6)), 8);
+  const data_short = utils.createFixedDataPacket(new Buffer(test_str.repeat(4)), 8);
+  const data_long = utils.createFixedDataPacket(new Buffer(test_str.repeat(6)), 8);
   data_short[2] = data_long[2];
   return {
     title: 'Test 3 change length',
@@ -247,7 +247,7 @@ function test3_change_length() {
 function test4_duplicate() {
 
   const test_str = 'TestData';
-  let data_dup = createFixedDataPacket(new Buffer(test_str.repeat(5)), 8);
+  let data_dup = utils.createFixedDataPacket(new Buffer(test_str.repeat(5)), 8);
   const N = data_dup.length;
   data_dup = [...data_dup.slice(0, 2), ...data_dup.slice(1)];
   return {
@@ -263,9 +263,9 @@ function test4_duplicate() {
 function test5_crc() {
 
   const test_str = 'TestData';
-  const data_a = createFixedDataPacket(new Buffer(test_str.repeat(5)), 8);
+  const data_a = utils.createFixedDataPacket(new Buffer(test_str.repeat(5)), 8);
   const test_str2 = 'blabla12';
-  const data_b = createFixedDataPacket(new Buffer(test_str2.repeat(5)), 8);
+  const data_b = utils.createFixedDataPacket(new Buffer(test_str2.repeat(5)), 8);
   data_a[2] = data_b[2];
   return {
     title: 'Test 5 CRC error',
@@ -279,10 +279,10 @@ function test5_crc() {
 
 function test6_crc() {
   const test_str = 'TestData';
-  const bad_packet = createFixedDataPacket(new Buffer(test_str.repeat(2)), 8);
+  const bad_packet = utils.createFixedDataPacket(new Buffer(test_str.repeat(2)), 8);
   bad_packet[1].writeInt32LE(0xDEAD, 4);
   bad_packet[2].writeInt32LE(0xC0DE, 4);
-  const good_packet = createFixedDataPacket(new Buffer(test_str.repeat(2)), 8);
+  const good_packet = utils.createFixedDataPacket(new Buffer(test_str.repeat(2)), 8);
   return {
     title: 'Test 6 Force ACK',
     stages: [

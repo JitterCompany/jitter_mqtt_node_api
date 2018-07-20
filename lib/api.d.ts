@@ -19,9 +19,4 @@ export declare class MQTTAPI {
     private prepareBrokerDatabase;
     insertNewClient(clientID: string, credentials: any): void;
 }
-export declare function newMQttLoginCredentials(): {
-    username: string;
-    password: string;
-    random: string;
-};
 //# sourceMappingURL=api.d.ts.map

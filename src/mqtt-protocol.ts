@@ -1,7 +1,7 @@
 import * as mqtt from 'mqtt';
 const Fiber = require('fibers');
 import { runTests, MQTTTest, MQTTAckTest } from './mqtt-protocol-test';
-import { checkCRC32, createFixedDataPacket, getAckTopicName } from './mqtt.utils';
+import { utils } from './utils';
 import { TopicHandlerWorker } from './api';
 
 const MAX_TRANSFER_RETRIES = 5;
@@ -117,7 +117,7 @@ export class MQTTWorker {
   }
 
   protected createSendTransfer(topic: string, data: any) {
-    const packets = createFixedDataPacket(new Buffer(data), this.max_packet_size);
+    const packets = utils.createFixedDataPacket(new Buffer(data), this.max_packet_size);
     this.sendPackets(topic, packets);
   }
 
@@ -194,7 +194,7 @@ export class MQTTWorker {
     const ack = this.ackTest.newPacket(payload);
     if (ack) {
       const topic = `f/${this.username}/acktest`;
-      this.mqtt_client.publish(getAckTopicName(topic), ack);
+      this.mqtt_client.publish(utils.getAckTopicName(topic), ack);
 
       if (ack.readUInt16LE(0) === 0xFFFF) {
         // start test in the other direction by sending a transfer of 7 packets
@@ -204,7 +204,7 @@ export class MQTTWorker {
           this.topicSendState.delete(sendtopic);
         }
         const test_str = 'TestData';
-        const data = createFixedDataPacket(new Buffer(test_str.repeat(6)), 8);
+        const data = utils.createFixedDataPacket(new Buffer(test_str.repeat(6)), 8);
         console.log('send acktest data to ', sendtopic);
         this.sendPackets(sendtopic, data);
       }
@@ -345,7 +345,7 @@ export class MQTTWorker {
         rmsg.writeUInt16LE(0xFFFF, 0);
         console.error('MAX RETRIES reached: sending force ack');
       }
-      this.mqtt_client.publish(getAckTopicName(topic), rmsg);
+      this.mqtt_client.publish(utils.getAckTopicName(topic), rmsg);
       return;
     }
     if (valid) {
@@ -360,7 +360,7 @@ export class MQTTWorker {
       // concatenate data and do something...
       if (state.tranfser_complete()) {
         all_data = Buffer.concat(state.data);
-        if (checkCRC32(all_data)) {
+        if (utils.checkCRC32(all_data)) {
           const data = all_data.slice(0, -4);
           console.log('transfer complete');
           complete = true;
@@ -390,8 +390,8 @@ export class MQTTWorker {
           rmsg.writeUInt16LE(0xFFFF, 0);
         }
       }
-      // console.log('sending ack on:', getAckTopicName(topic));
-      this.mqtt_client.publish(getAckTopicName(topic), rmsg);
+      // console.log('sending ack on:', utils.getAckTopicName(topic));
+      this.mqtt_client.publish(utils.getAckTopicName(topic), rmsg);
       return complete ? all_data : undefined;
     }
     return;
