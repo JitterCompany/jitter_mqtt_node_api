@@ -1,28 +1,36 @@
 import * as mqtt from 'mqtt';
 
-import { MQTTClient, MQTTTopic, TopicReturnMessage, TopicHandlers, TopicHandler } from './mqtt.model';
-import { MQTTWorker } from './mqtt-protocol';
+import { MQTTClient, MQTTTopic, TopicHandlers, TopicHandler } from './mqtt.model';
+import { MQTTWorker, TopicHandlerWorker } from './mqtt-protocol';
 import { utils } from './utils';
-
-export declare type TopicHandlerWorker = (username: string, payload?: Buffer, worker?: MQTTWorker) => TopicReturnMessage;
 
 const ANON_MQTT_USERNAME = 'anon';
 const MAX_PACKET_SIZE = 1024; // bytes
 
+/**
+ * MQTTAPI handles all low level MQTT related tasks and scheduling.
+ */
 export class MQTTAPI {
 
   private mqtt_client: mqtt.MqttClient;
   private topicMap: {[topicName: string]: TopicHandlerWorker};
   private workers: {[username: string]: MQTTWorker} = {};
 
+  /**
+   * MQTTAPI
+   * @param broker_url mqtt url, e.g. `mqtt://localhost`
+   * @param clientCollection Meteor Mongo collection of type `Mongo.Collection<MQTTClient>`
+   * @param topicCollection Meteor Mongo collection of type `Mongo.Collection<MQTTTopic>`
+   * @param handlers object that implements `TopicHandlers` interface
+   */
   constructor(
+    broker_url: string,
     private clientCollection: Mongo.Collection<MQTTClient>,
     private topicCollection: Mongo.Collection<MQTTTopic>,
-    broker_url: string,
     private handlers: TopicHandlers
   ) {
 
-    this.createHandlerMap(handlers);
+    this.topicMap = this.createHandlerMap(handlers);
 
     const options: mqtt.IClientOptions = {
       username: 'server',
@@ -46,6 +54,107 @@ export class MQTTAPI {
       this.mqtt_client.on('message', (topic, message) => this.topicDispatch(topic, message));
   }
 
+  /**
+   * Add new MQTTClient to client collections for the broker to use for authentication.
+   * @param clientID
+   * @param credentials
+   */
+  private insertNewClient(clientID: string, credentials: utils.LoginCredentials) {
+    const newClient: MQTTClient = {
+      _id: credentials.username,
+      password: utils.password_encoding(credentials.password),
+      topics: 'sensor',
+      clientID: clientID,
+      verified: false
+    };
+    this.clientCollection.insert(newClient);
+  }
+
+  private createHandlerMap(handlers: TopicHandlers) {
+
+    // Standard protocol topics and handlers
+    const topicMap = {
+      'register': this.register_protocol_handler,
+      'verify': this.verify_protocol_handler,
+      'hi': this.hi_protocol_handler,
+      'bye': handlers.topic_bye,
+      'fixeddatatest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest(payload),
+      'fixeddatatest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest_ack(payload),
+      'acktest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest(payload),
+      'acktest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest_ack(payload),
+      'selftest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload)
+    };
+
+    // Additionaly arbitrary user defined topics and handlers.
+    handlers.topic_list.forEach(topic_desc => {
+
+      const handler: TopicHandler = handlers['topic_' +  topic_desc.topicName];
+      let wrapped_handler;
+      if (!handler) {
+        throw new Error(`no handler for topic [${topic_desc.topicName}].
+        Expected: 'topic_ +  ${topic_desc.topicName}(username: string, payload?: Buffer)'`);
+      }
+
+      if (topic_desc.type && topic_desc.type === 'fixeddata') {
+        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+          const topic = `f/${username}/${topic_desc.topicName}`;
+          const data = worker.fixedDataReceiveHandler(topic, payload);
+          if (data) {
+            handler(username, data);
+          }
+        }
+      } else {
+        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => handler(username, payload);
+      }
+
+      topicMap[topic_desc.topicName] = wrapped_handler;
+    });
+    return topicMap;
+  }
+
+  /**
+   * Add or update the necessary documents for the MQTT Broker
+   * @param options must contain password and username for server to login to broker.
+   */
+  private prepareBrokerDatabase(options: mqtt.IClientOptions) {
+
+    console.log('Adding server as mqtt client');
+    const server: MQTTClient = {
+      _id: <string>options.username,
+      topics: 'server',
+      password: utils.password_encoding(<string>options.password),
+      clientID: 'server',
+      verified: true,
+    };
+    this.clientCollection.upsert(<string>options.username, server);
+
+    console.log('Adding anon as mqtt client');
+    const anon: MQTTClient = {
+      _id: ANON_MQTT_USERNAME,
+      topics: 'anon',
+      clientID: 'anon',
+      verified: true,
+    };
+    this.clientCollection.upsert(ANON_MQTT_USERNAME, anon);
+
+    this.topicCollection.upsert('server', {
+      _id: 'server',
+      topics: new Map([['t/#', 'w'], ['f/#', 'r']])
+    });
+    this.topicCollection.upsert('anon', {
+      _id: 'anon',
+      topics: new Map([['f/client-%c/register', 'w'], ['t/client-%c/register', 'r']])
+    });
+    this.topicCollection.upsert('sensor', {
+      _id: 'sensor',
+      topics: new Map([['f/%u/#', 'w'], ['t/%u/#', 'r']])
+    });
+  }
+
+  /**
+   * Returns `MQTTWorker` for specific client, based on username
+   * @param username unique client identifier
+   */
   private getWorker(username: string) {
     if (!this.workers[username]) {
       this.workers[username] = new MQTTWorker(username, this.mqtt_client, MAX_PACKET_SIZE);
@@ -53,6 +162,12 @@ export class MQTTAPI {
     return this.workers[username];
   }
 
+  /**
+   * Parse incomming topic name and dispatch message to correct handler
+   * using client-specific worker.
+   * @param topic name of mqtt topic in the form of `f/{username}/{topic}`
+   * @param message payload bytes in a Nodejs Buffer
+   */
   private topicDispatch(topic: string, message: Buffer) {
     const m = topic.match('f\/([^\/]*)\/(.*)');
     if (m) {
@@ -70,7 +185,9 @@ export class MQTTAPI {
     }
   }
 
-  public hi_protocol_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+  // Built-in protocol topic handlers
+
+  private hi_protocol_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
     if (!payload.byteLength) {
       return;
     }
@@ -85,7 +202,7 @@ export class MQTTAPI {
     this.mqtt_client.publish(`t/${username}/hi`, r);
   }
 
-  public register_protocol_handler = (clientID: string) => {
+  private register_protocol_handler = (clientID: string) => {
     const prefix = 'client-';
     if (clientID.startsWith(prefix)) {
       const id = clientID.slice(prefix.length);
@@ -134,86 +251,4 @@ export class MQTTAPI {
     }
   }
 
-  private createHandlerMap(handlers: TopicHandlers) {
-    this.topicMap = {
-      'register': this.register_protocol_handler,
-      'verify': this.verify_protocol_handler,
-      'hi': this.hi_protocol_handler,
-      'bye': handlers.topic_bye,
-      'fixeddatatest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest(payload),
-      'fixeddatatest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest_ack(payload),
-      'acktest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest(payload),
-      'acktest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest_ack(payload),
-      'selftest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload)
-    };
-
-    handlers.topic_list.forEach(topic_desc => {
-
-      const handler: TopicHandler = handlers['topic_' +  topic_desc.topicName];
-      let wrapped_handler;
-      if (!handler) {
-        throw new Error(`no handler for topic [${topic_desc.topicName}]`);
-      }
-
-      if (topic_desc.type && topic_desc.type === 'fixeddata') {
-        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
-          const topic = `f/${username}/${topic_desc.topicName}`;
-          const data = worker.fixedDataReceiveHandler(topic, payload);
-          if (data) {
-            handler(username, data);
-          }
-        }
-      } else {
-        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => handler(username, payload);
-      }
-
-      this.topicMap[topic_desc.topicName] = wrapped_handler;
-    });
-  }
-
-  private prepareBrokerDatabase(options: mqtt.IClientOptions) {
-
-    console.log('Adding server as mqtt client');
-    const server: MQTTClient = {
-      _id: options.username,
-      topics: 'server',
-      password: utils.password_encoding(options.password),
-      clientID: 'server',
-      verified: true,
-    };
-    this.clientCollection.upsert(options.username, server);
-
-    console.log('Adding anon as mqtt client');
-    const anon: MQTTClient = {
-      _id: ANON_MQTT_USERNAME,
-      topics: 'anon',
-      clientID: 'anon',
-      verified: true,
-    };
-    this.clientCollection.upsert(ANON_MQTT_USERNAME, anon);
-
-    this.topicCollection.upsert('server', {
-      _id: 'server',
-      topics: new Map([['t/#', 'w'], ['f/#', 'r']])
-    });
-    this.topicCollection.upsert('anon', {
-      _id: 'anon',
-      topics: new Map([['f/client-%c/register', 'w'], ['t/client-%c/register', 'r']])
-    });
-    this.topicCollection.upsert('sensor', {
-      _id: 'sensor',
-      topics: new Map([['f/%u/#', 'w'], ['t/%u/#', 'r']])
-    });
-  }
-
-  insertNewClient(clientID: string, credentials) {
-    const newClient: MQTTClient = {
-      _id: credentials.username,
-      password: utils.password_encoding(credentials.password),
-      topics: 'sensor',
-      clientID: clientID,
-      verified: false
-    };
-    this.clientCollection.insert(newClient);
-  }
 }

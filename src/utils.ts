@@ -57,7 +57,13 @@ export namespace utils {
     return pw_store;
   }
 
-  export function newMQttLoginCredentials() {
+  export interface LoginCredentials {
+    username: string;
+    password: string;
+    random: string;
+  }
+
+  export function newMQttLoginCredentials(): LoginCredentials {
     const password = randomSecret(16);
     const random = randomSecret(48);
     const username = randomSecret(4);

@@ -21,7 +21,7 @@ export declare class MQTTAckTest {
     index: number;
     count: number;
     expected_N: number[];
-    newPacket(payload: Buffer): Buffer;
+    newPacket(payload: Buffer): Buffer | undefined;
 }
 export declare class MQTTTest {
     private testCases;

@@ -2,7 +2,8 @@ import * as mqtt from 'mqtt';
 const Fiber = require('fibers');
 import { runTests, MQTTTest, MQTTAckTest } from './mqtt-protocol-test';
 import { utils } from './utils';
-import { TopicHandlerWorker } from './api';
+
+export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) => void;
 
 const MAX_TRANSFER_RETRIES = 5;
 
