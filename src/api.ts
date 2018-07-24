@@ -79,10 +79,11 @@ export class MQTTAPI {
       'hi': this.hi_protocol_handler,
       'bye': handlers.topic_bye,
       'fixeddatatest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest(payload),
-      'fixeddatatest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest_ack(payload),
       'acktest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest(payload),
       'acktest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest_ack(payload),
-      'selftest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload)
+      'selftest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload),
+      '+/ack':  (username: string, payload: Buffer, worker: MQTTWorker) => undefined, // special case: handled in topicDispatch
+      '+/prog':  (username: string, payload: Buffer, worker: MQTTWorker) => undefined // special case: handled in topicDispatch: TODO
     };
 
     // Additionaly arbitrary user defined topics and handlers.
@@ -100,7 +101,7 @@ export class MQTTAPI {
           const topic = `f/${username}/${topic_desc.topicName}`;
           const data = worker.fixedDataReceiveHandler(topic, payload);
           if (data) {
-            handler(username, data);
+            return handler(username, data);
           }
         }
       } else {
@@ -170,18 +171,41 @@ export class MQTTAPI {
    */
   private topicDispatch(topic: string, message: Buffer) {
     const m = topic.match('f\/([^\/]*)\/(.*)');
-    if (m) {
-      const username = m[1];
-      const topicname = m[2];
-      const worker = this.getWorker(username);
-      const handler = this.topicMap[topicname];
-      if (worker && handler) {
-        worker.addTask(handler, message);
-      } else {
-        console.error(`No worker or handler for topic '${topicname}'. Username: '${username}'.`);
-      }
-    } else {
+    if (!m) {
       console.warn(`Unmatched topic: ${topic}`);
+      return;
+    }
+    const username = m[1];
+    const topicname = m[2];
+    const worker = this.getWorker(username);
+    if (!worker) {
+      console.error(`No worker for topic '${topicname}'. Username: '${username}'.`);
+      return;
+    }
+
+    let handler = this.topicMap[topicname];
+
+    // check if we need to use ack handler
+    if (!handler) {
+      const ackM = topic.match('f\/([^\/]*)\/(.*)/ack');
+      if (!ackM) {
+        console.warn(`Unmatched topic: ${topic}`);
+        return;
+      }
+      const topicname = ackM[2];
+      handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+        const topic = `t/${username}/${topicname}`;
+        const done = worker.fixedDataAckHandler(topic, payload);
+        if (done) {
+          console.log('file transfer done');
+        }
+      }
+    }
+
+    if(handler) {
+      worker.addTask(handler, message);
+    } else {
+      console.error(`No handler for topic '${topicname}'. Username: '${username}'.`);
     }
   }
 

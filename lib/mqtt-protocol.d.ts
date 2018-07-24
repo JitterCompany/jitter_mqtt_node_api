@@ -53,12 +53,6 @@ export declare class MQTTWorker {
      */
     topic_fixeddatatest(payload: Buffer): void;
     /**
-     * Topic for receiving tests from sensor when server is testing
-     * sensor fixed data protocol implementation
-     * @param payload
-     */
-    topic_fixeddatatest_ack(payload: Buffer): void;
-    /**
      * Starts a test routine to test the protocol implementation for the
      * client that requests it.
      * @param payload

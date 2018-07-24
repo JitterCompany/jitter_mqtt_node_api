@@ -2,6 +2,7 @@ import * as mqtt from 'mqtt';
 const Fiber = require('fibers');
 import { runTests, MQTTTest, MQTTAckTest } from './mqtt-protocol-test';
 import { utils } from './utils';
+import { TopicReturnDescriptor } from './mqtt.model';
 
 export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) => void;
 
@@ -126,7 +127,7 @@ export class MQTTWorker {
     let state = this.topicSendState.get(topic);
     if (state) {
       console.warn(`Previous transfer not finished on topic ${topic}`);
-      return false;
+      // return false; //TODO
     }
 
     if (!state) {
@@ -150,19 +151,6 @@ export class MQTTWorker {
     const data = this.fixedDataReceiveHandler(topic, payload);
     if (data) {
       console.log('received data of length: ', data.byteLength);
-    }
-  }
-
-  /**
-   * Topic for receiving tests from sensor when server is testing
-   * sensor fixed data protocol implementation
-   * @param payload
-   */
-  public topic_fixeddatatest_ack(payload: Buffer) {
-    const topic = `t/${this.username}/fixeddatatest`;
-    const done = this.fixedDataAckHandler(topic, payload);
-    if (done) {
-      console.log('file transfer done');
     }
   }
 
@@ -238,7 +226,21 @@ export class MQTTWorker {
           processNext();
         };
 
-        item.handler(this.username, item.payload, this);
+        const ret = item.handler(this.username, item.payload, this);
+
+        if (ret) {
+          if (typeof ret === 'string') {
+
+          // } else if (typeof ret === 'Buffer') {
+
+          } else if (Array.isArray(ret)) {
+            (<TopicReturnDescriptor[]>ret).forEach((desc: TopicReturnDescriptor) => {
+              console.log('prepare to publish:', desc);
+              const topic = `t/${this.username}/${desc.topicname}`;
+              this.createSendTransfer(topic, desc.message);
+            });
+          }
+        }
 
         unblock(); // in case the handler didn't already do it
       }).run();
