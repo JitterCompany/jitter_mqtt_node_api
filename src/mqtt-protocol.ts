@@ -231,6 +231,9 @@ export class MQTTWorker {
         if (ret) {
           if (Array.isArray(ret)) {
             (<TopicReturnDescriptor[]>ret).forEach((desc: TopicReturnDescriptor) => {
+              if (!desc) {
+                return;
+              }
               const topic = `t/${this.username}/${desc.topicname}`;
               if (desc.type && desc.type === 'fixeddata') {
                 this.createSendTransfer(topic, desc.message);
