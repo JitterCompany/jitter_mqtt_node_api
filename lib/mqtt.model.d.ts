@@ -65,7 +65,8 @@ export interface TopicDescriptor {
 }
 export interface TopicReturnDescriptor {
     topicname: string;
-    message: Buffer;
+    message: string | Buffer;
+    type?: TopicType;
 }
-export declare type TopicReturnMessage = string | Buffer | TopicReturnDescriptor[] | undefined | void;
+export declare type TopicReturnMessage = TopicReturnDescriptor | TopicReturnDescriptor[] | void;
 //# sourceMappingURL=mqtt.model.d.ts.map

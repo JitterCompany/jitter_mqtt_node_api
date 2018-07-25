@@ -229,16 +229,18 @@ export class MQTTWorker {
         const ret = item.handler(this.username, item.payload, this);
 
         if (ret) {
-          if (typeof ret === 'string') {
-
-          // } else if (typeof ret === 'Buffer') {
-
-          } else if (Array.isArray(ret)) {
+          if (Array.isArray(ret)) {
             (<TopicReturnDescriptor[]>ret).forEach((desc: TopicReturnDescriptor) => {
-              console.log('prepare to publish:', desc);
               const topic = `t/${this.username}/${desc.topicname}`;
-              this.createSendTransfer(topic, desc.message);
+              if (desc.type && desc.type === 'fixeddata') {
+                this.createSendTransfer(topic, desc.message);
+              } else {
+                this.mqtt_client.publish(topic, desc.message);
+              }
             });
+          } else {
+            const desc = <TopicReturnDescriptor>ret;
+            this.mqtt_client.publish(desc.topicname, desc.message);
           }
         }
 

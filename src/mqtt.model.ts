@@ -72,7 +72,8 @@ export interface TopicDescriptor {
 
 export interface TopicReturnDescriptor {
   topicname: string,
-  message: Buffer
+  message: string | Buffer,
+  type?: TopicType;
 }
 
-export type TopicReturnMessage = string | Buffer | TopicReturnDescriptor[] | undefined | void;
+export type TopicReturnMessage = TopicReturnDescriptor | TopicReturnDescriptor[] | void;
