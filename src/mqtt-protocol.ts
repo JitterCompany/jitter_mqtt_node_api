@@ -124,7 +124,7 @@ export class MQTTWorker {
   }
 
   protected sendPackets(topic: string, packets: Buffer[]) {
-    let state = this.topicSendState.get(topic);
+    let state = this.getSendState(topic);
     if (state) {
       console.warn(`Previous transfer not finished on topic ${topic}`);
       // return false; //TODO
@@ -240,7 +240,8 @@ export class MQTTWorker {
             });
           } else {
             const desc = <TopicReturnDescriptor>ret;
-            this.mqtt_client.publish(desc.topicname, desc.message);
+            const topic = `t/${this.username}/${desc.topicname}`;
+            this.mqtt_client.publish(topic, desc.message);
           }
         }
 
@@ -268,7 +269,7 @@ export class MQTTWorker {
   public fixedDataAckHandler(topic: string, payload: Buffer) {
     const ack = payload.readUInt16LE(0);
 
-    const state =  this.topicSendState.get(topic);
+    const state =  this.getSendState(topic);
     if (this.test && (topic === `t/${this.username}/fixeddatatest`)) {
       const testFinished = this.test.got_ack(ack);
       if (testFinished) {
