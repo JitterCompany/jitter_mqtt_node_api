@@ -5,8 +5,7 @@ interface ProgressData {
 export declare class MQTTMetaData {
     private progressStore;
     constructor();
-    initProgress(id: string, topic: string, progress: number, total: number): void;
-    updateProgress(id: string, topic: string, progress: number): void;
+    updateProgress(id: string, topic: string, progress: number, total?: number): void;
     finishProgress(id: string, topic: string): void;
     getProgressData(id: string): "" | [string, ProgressData][];
 }

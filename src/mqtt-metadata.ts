@@ -15,22 +15,7 @@ export class MQTTMetaData {
 
   }
 
-  initProgress(id: string, topic: string, progress: number, total: number) {
-    let clientProgress = this.progressStore.get(id);
-    if (!clientProgress) {
-      clientProgress = new Map<string, ProgressData>();
-    }
-
-    clientProgress.set(topic, {
-      progress: progress,
-      totalPackets: total
-    });
-
-    this.progressStore.set(id, clientProgress);
-
-  }
-
-  updateProgress(id: string, topic: string, progress: number) {
+  updateProgress(id: string, topic: string, progress: number, total?: number) {
 
     // get
     let clientProgress = this.progressStore.get(id);
@@ -41,7 +26,7 @@ export class MQTTMetaData {
     const progressData = clientProgress.get(topic);
     clientProgress.set(topic, {
       progress: progress,
-      totalPackets: progressData ? progressData.totalPackets : -1
+      totalPackets: total || (progressData ? progressData.totalPackets : -1)
     });
     this.progressStore.set(id, clientProgress);
   }
