@@ -3,6 +3,7 @@ import * as mqtt from 'mqtt';
 import { MQTTClient, MQTTTopic, TopicHandlers, TopicHandler } from './mqtt.model';
 import { MQTTWorker, TopicHandlerWorker } from './mqtt-protocol';
 import { utils } from './utils';
+import { MQTTMetaData } from './mqtt-metadata';
 
 const ANON_MQTT_USERNAME = 'anon';
 const MAX_PACKET_SIZE = 1024; // bytes
@@ -15,7 +16,7 @@ export class MQTTAPI {
   private mqtt_client: mqtt.MqttClient;
   private topicMap: {[topicName: string]: TopicHandlerWorker};
   private workers: {[username: string]: MQTTWorker} = {};
-
+  private metadata = new MQTTMetaData();
   /**
    * MQTTAPI
    * @param broker_url mqtt url, e.g. `mqtt://localhost`
@@ -89,7 +90,7 @@ export class MQTTAPI {
     // Additionaly arbitrary user defined topics and handlers.
     handlers.topic_list.forEach(topic_desc => {
 
-      const handler: TopicHandler = handlers['topic_' +  topic_desc.topicName];
+      const handler: TopicHandler = handlers['topic_' +  topic_desc.topicName.replace('/', '_')];
       let wrapped_handler;
       if (!handler) {
         throw new Error(`no handler for topic [${topic_desc.topicName}].
@@ -158,7 +159,7 @@ export class MQTTAPI {
    */
   private getWorker(username: string) {
     if (!this.workers[username]) {
-      this.workers[username] = new MQTTWorker(username, this.mqtt_client, MAX_PACKET_SIZE);
+      this.workers[username] = new MQTTWorker(username, this.mqtt_client, MAX_PACKET_SIZE, this.metadata);
     }
     return this.workers[username];
   }
@@ -188,17 +189,40 @@ export class MQTTAPI {
     // check if we need to use ack handler
     if (!handler) {
       const ackM = topic.match('f\/([^\/]*)\/(.*)/ack');
-      if (!ackM) {
-        console.warn(`Unmatched topic: ${topic}`);
-        return;
-      }
-      const topicname = ackM[2];
-      handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
-        const topic = `t/${username}/${topicname}`;
-        const done = worker.fixedDataAckHandler(topic, payload);
-        if (done) {
-          console.log('file transfer done');
+      // if (!ackM) {
+      //   console.warn(`Unmatched topic: ${topic}`);
+      //   return;
+      // }
+      if (ackM) {
+        const topicname = ackM[2];
+        handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+          const ltopic = `t/${username}/${topicname}`;
+          const done = worker.fixedDataAckHandler(ltopic, payload);
+          if (done) {
+            this.metadata.finishProgress(username, ltopic);
+            if (this.handlers.progressUpdate) {
+              this.handlers.progressUpdate(this.metadata.getProgressData(username));
+            }
+            console.log('file transfer done');
+          }
         }
+      }
+    }
+
+    // check if we need the progress handler
+    if (!handler) {
+      const progM = topic.match('f\/([^\/]*)\/(.*)/prog')
+      if (progM) {
+        const topicname = progM[2];
+        handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+          const progress = payload.readUInt16LE(0);
+          const ltopic = `t/${username}/${topicname}`;
+          this.metadata.updateProgress(username, ltopic, progress);
+          if (this.handlers.progressUpdate) {
+            this.handlers.progressUpdate(this.metadata.getProgressData(username));
+          }
+        };
+        // console.log('received progress data for ', topicname, ' data:', message);
       }
     }
 

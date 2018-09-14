@@ -9,6 +9,7 @@ export declare class MQTTAPI {
     private mqtt_client;
     private topicMap;
     private workers;
+    private metadata;
     /**
      * MQTTAPI
      * @param broker_url mqtt url, e.g. `mqtt://localhost`

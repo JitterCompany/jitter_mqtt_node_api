@@ -50,6 +50,8 @@ export interface TopicHandlers {
   topic_register: (username: string, clientID: string) => void;
   topic_verify: (username: string, clientID: string) => void;
   topic_list: TopicDescriptor[];
+  // TODO: finalize
+  progressUpdate?: (progressData) => void
 }
 
 /**

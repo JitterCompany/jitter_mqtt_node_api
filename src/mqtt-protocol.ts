@@ -3,6 +3,7 @@ const Fiber = require('fibers');
 import { runTests, MQTTTest, MQTTAckTest } from './mqtt-protocol-test';
 import { utils } from './utils';
 import { TopicReturnDescriptor } from './mqtt.model';
+import { MQTTMetaData } from './mqtt-metadata';
 
 export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) => void;
 
@@ -94,7 +95,8 @@ export class MQTTWorker {
   constructor(
     protected username: string,
     protected mqtt_client: mqtt.MqttClient,
-    protected max_packet_size: number
+    protected max_packet_size: number,
+    private metadataStore: MQTTMetaData
   ) {}
 
   public allTransfersFinished() {
@@ -127,13 +129,15 @@ export class MQTTWorker {
     let state = this.getSendState(topic);
     if (state) {
       console.warn(`Previous transfer not finished on topic ${topic}`);
-      // return false; //TODO
+      // return false; //TODO what if it never finishes?
     }
 
     if (!state) {
       state = new FixedDataSendState(packets);
       this.topicSendState.set(topic, state);
     }
+
+    this.metadataStore.initProgress(this.username, topic, 0, packets.length);
 
     state.data.forEach(
       packet => this.mqtt_client.publish(topic, packet));

@@ -46,6 +46,7 @@ export interface TopicHandlers {
     topic_register: (username: string, clientID: string) => void;
     topic_verify: (username: string, clientID: string) => void;
     topic_list: TopicDescriptor[];
+    progressUpdate?: (progressData: any) => void;
 }
 /**
  * TopicType for specifying the used protocol on each topic.
