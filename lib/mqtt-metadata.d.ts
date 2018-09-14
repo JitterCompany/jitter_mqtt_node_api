@@ -7,6 +7,7 @@ export declare class MQTTMetaData {
     constructor();
     initProgress(id: string, topic: string, progress: number, total: number): void;
     updateProgress(id: string, topic: string, progress: number): void;
+    finishProgress(id: string, topic: string): void;
     getProgressData(id: string): "" | [string, ProgressData][];
 }
 export {};

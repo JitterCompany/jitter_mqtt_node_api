@@ -201,7 +201,7 @@ export class MQTTAPI {
           if (done) {
             this.metadata.finishProgress(username, ltopic);
             if (this.handlers.progressUpdate) {
-              this.handlers.progressUpdate(this.metadata.getProgressData(username));
+              this.handlers.progressUpdate(username, this.metadata.getProgressData(username));
             }
             console.log('file transfer done');
           }
@@ -219,7 +219,7 @@ export class MQTTAPI {
           const ltopic = `t/${username}/${topicname}`;
           this.metadata.updateProgress(username, ltopic, progress);
           if (this.handlers.progressUpdate) {
-            this.handlers.progressUpdate(this.metadata.getProgressData(username));
+            this.handlers.progressUpdate(username, this.metadata.getProgressData(username));
           }
         };
         // console.log('received progress data for ', topicname, ' data:', message);
