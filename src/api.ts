@@ -84,7 +84,7 @@ export class MQTTAPI {
       'acktest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest_ack(payload),
       'selftest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload),
       '+/ack':  (username: string, payload: Buffer, worker: MQTTWorker) => undefined, // special case: handled in topicDispatch
-      '+/prog':  (username: string, payload: Buffer, worker: MQTTWorker) => undefined // special case: handled in topicDispatch: TODO
+      '+/prog':  (username: string, payload: Buffer, worker: MQTTWorker) => undefined // special case: handled in topicDispatch
     };
 
     // Additionaly arbitrary user defined topics and handlers.
