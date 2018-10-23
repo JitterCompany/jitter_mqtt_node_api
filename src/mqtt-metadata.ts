@@ -1,17 +1,21 @@
 type Topic = string;
 
-interface ProgressData {
+export interface ProgressData {
   progress: number;
   totalPackets: number;
 }
 type ClientProgressMap = Map<Topic, ProgressData>
+
+export type ProgressEventCallback =  (id: string, progressData: [string, ProgressData][]) => void;
 
 
 export class MQTTMetaData {
 
   private progressStore = new Map<string, ClientProgressMap>();
 
-  constructor() {
+  constructor(
+    private progressEvent?: ProgressEventCallback
+  ) {
 
   }
 
@@ -29,6 +33,13 @@ export class MQTTMetaData {
       totalPackets: total || (progressData ? progressData.totalPackets : -1)
     });
     this.progressStore.set(id, clientProgress);
+
+    if (this.progressEvent) {
+      const data = this.getProgressData(id);
+      if (data) {
+        this.progressEvent(id, data);
+      }
+    }
   }
 
   finishProgress(id: string, topic: string) {
@@ -43,6 +54,7 @@ export class MQTTMetaData {
       totalPackets: progressData ? progressData.totalPackets : -1
     });
     this.progressStore.set(id, clientProgress);
+
   }
 
   getProgressData(id: string) {

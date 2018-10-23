@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { ProgressEventCallback } from "./mqtt-metadata";
 /**
  * The MQTTClient interface describes the schema for the required Mongo collection for the
  * MQTT Clients. The API will use this collection to add new login credentials so that the broker
@@ -46,7 +47,7 @@ export interface TopicHandlers {
     topic_register: (username: string, clientID: string) => void;
     topic_verify: (username: string, clientID: string) => void;
     topic_list: TopicDescriptor[];
-    progressUpdate?: (username: string, progressData: any) => void;
+    progressUpdate?: ProgressEventCallback;
 }
 /**
  * TopicType for specifying the used protocol on each topic.

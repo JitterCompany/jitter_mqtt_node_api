@@ -5,7 +5,8 @@ import { utils } from './utils';
 import { TopicReturnDescriptor } from './mqtt.model';
 import { MQTTMetaData } from './mqtt-metadata';
 
-export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) => void;
+export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) =>
+TopicReturnDescriptor[] | TopicReturnDescriptor | undefined | void;
 
 const MAX_TRANSFER_RETRIES = 5;
 
@@ -137,6 +138,7 @@ export class MQTTWorker {
       this.topicSendState.set(topic, state);
     }
 
+    // initiate progress counter to 0
     this.metadataStore.updateProgress(this.username, topic, 0, packets.length);
 
     state.data.forEach(

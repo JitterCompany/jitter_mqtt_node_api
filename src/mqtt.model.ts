@@ -1,3 +1,4 @@
+import { ProgressEventCallback } from "./mqtt-metadata";
 
 /**
  * The MQTTClient interface describes the schema for the required Mongo collection for the
@@ -50,7 +51,7 @@ export interface TopicHandlers {
   topic_register: (username: string, clientID: string) => void;
   topic_verify: (username: string, clientID: string) => void;
   topic_list: TopicDescriptor[];
-  progressUpdate?: (username: string, progressData) => void
+  progressUpdate?: ProgressEventCallback
 }
 
 /**

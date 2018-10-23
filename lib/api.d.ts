@@ -10,14 +10,22 @@ export declare class MQTTAPI {
     private topicMap;
     private workers;
     private metadata;
+    private maxPacketSize;
     /**
      * MQTTAPI
      * @param broker_url mqtt url, e.g. `mqtt://localhost`
      * @param clientCollection Meteor Mongo collection of type `Mongo.Collection<MQTTClient>`
      * @param topicCollection Meteor Mongo collection of type `Mongo.Collection<MQTTTopic>`
      * @param handlers object that implements `TopicHandlers` interface
+     * @param maxPacketSize? optional packet size in bytes. Fixeddata transfers will be split in
+     * packets of (max) this size
      */
-    constructor(broker_url: string, clientCollection: Mongo.Collection<MQTTClient>, topicCollection: Mongo.Collection<MQTTTopic>, handlers: TopicHandlers);
+    constructor(broker_url: string, clientCollection: Mongo.Collection<MQTTClient>, topicCollection: Mongo.Collection<MQTTTopic>, handlers: TopicHandlers, maxPacketSize?: number);
+    /**
+     * Get Progress Data for all FixedData topics for a specific `username`
+     * @param username mqtt username of client
+     */
+    getProgressData(username: string): any;
     /**
      * Add new MQTTClient to client collections for the broker to use for authentication.
      * @param clientID

@@ -6,7 +6,7 @@ import { utils } from './utils';
 import { MQTTMetaData } from './mqtt-metadata';
 
 const ANON_MQTT_USERNAME = 'anon';
-const MAX_PACKET_SIZE = 1024; // bytes
+const DEFAULT_MAX_PACKET_SIZE = 1024; // bytes
 
 /**
  * MQTTAPI handles all low level MQTT related tasks and scheduling.
@@ -16,20 +16,32 @@ export class MQTTAPI {
   private mqtt_client: mqtt.MqttClient;
   private topicMap: {[topicName: string]: TopicHandlerWorker};
   private workers: {[username: string]: MQTTWorker} = {};
-  private metadata = new MQTTMetaData();
+  private metadata; // = new MQTTMetaData();
+  private maxPacketSize = DEFAULT_MAX_PACKET_SIZE;
   /**
    * MQTTAPI
    * @param broker_url mqtt url, e.g. `mqtt://localhost`
    * @param clientCollection Meteor Mongo collection of type `Mongo.Collection<MQTTClient>`
    * @param topicCollection Meteor Mongo collection of type `Mongo.Collection<MQTTTopic>`
    * @param handlers object that implements `TopicHandlers` interface
+   * @param maxPacketSize? optional packet size in bytes. Fixeddata transfers will be split in
+   * packets of (max) this size
    */
   constructor(
     broker_url: string,
     private clientCollection: Mongo.Collection<MQTTClient>,
     private topicCollection: Mongo.Collection<MQTTTopic>,
-    private handlers: TopicHandlers
+    private handlers: TopicHandlers,
+    maxPacketSize?: number
   ) {
+
+    // Override default max packet size if provided
+    if (maxPacketSize) {
+      this.maxPacketSize = maxPacketSize;
+    }
+
+
+    this.metadata = new MQTTMetaData(handlers.progressUpdate);
 
     this.topicMap = this.createHandlerMap(handlers);
 
@@ -53,6 +65,14 @@ export class MQTTAPI {
         console.log(g.map(gg => gg.topic));
       });
       this.mqtt_client.on('message', (topic, message) => this.topicDispatch(topic, message));
+  }
+
+  /**
+   * Get Progress Data for all FixedData topics for a specific `username`
+   * @param username mqtt username of client
+   */
+  public getProgressData(username: string) {
+    return this.metadata.getProgressData(username);
   }
 
   /**
@@ -159,7 +179,7 @@ export class MQTTAPI {
    */
   private getWorker(username: string) {
     if (!this.workers[username]) {
-      this.workers[username] = new MQTTWorker(username, this.mqtt_client, MAX_PACKET_SIZE, this.metadata);
+      this.workers[username] = new MQTTWorker(username, this.mqtt_client, this.maxPacketSize, this.metadata);
     }
     return this.workers[username];
   }
@@ -189,10 +209,6 @@ export class MQTTAPI {
     // check if we need to use ack handler
     if (!handler) {
       const ackM = topic.match('f\/([^\/]*)\/(.*)/ack');
-      // if (!ackM) {
-      //   console.warn(`Unmatched topic: ${topic}`);
-      //   return;
-      // }
       if (ackM) {
         const topicname = ackM[2];
         handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
@@ -200,9 +216,6 @@ export class MQTTAPI {
           const done = worker.fixedDataAckHandler(ltopic, payload);
           if (done) {
             this.metadata.finishProgress(username, ltopic);
-            if (this.handlers.progressUpdate) {
-              this.handlers.progressUpdate(username, this.metadata.getProgressData(username));
-            }
             console.log('file transfer done');
           }
         }
@@ -218,9 +231,6 @@ export class MQTTAPI {
           const progress = payload.readUInt16LE(0);
           const ltopic = `t/${username}/${topicname}`;
           this.metadata.updateProgress(username, ltopic, progress);
-          if (this.handlers.progressUpdate) {
-            this.handlers.progressUpdate(username, this.metadata.getProgressData(username));
-          }
         };
         // console.log('received progress data for ', topicname, ' data:', message);
       }

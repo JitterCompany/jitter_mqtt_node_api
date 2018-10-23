@@ -1,8 +1,9 @@
 /// <reference types="node" />
 import * as mqtt from 'mqtt';
 import { MQTTTest, MQTTAckTest } from './mqtt-protocol-test';
+import { TopicReturnDescriptor } from './mqtt.model';
 import { MQTTMetaData } from './mqtt-metadata';
-export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) => void;
+export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) => TopicReturnDescriptor[] | TopicReturnDescriptor | undefined | void;
 declare class FixedDataReceiveState {
     total_packets: number;
     data: Buffer[];
