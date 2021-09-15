@@ -12,7 +12,7 @@ declare class MQTTTestCase {
     current_stage: MQTTTestStage | undefined;
     index: number;
     constructor(desc: MQTTTestDescriptor);
-    readonly title: string;
+    get title(): string;
     run(send: Function): boolean;
     got_ack(ack: number): "failed" | "next" | "done";
 }

@@ -1,3 +1,4 @@
+/// <reference types="meteor" />
 import { MQTTClient, MQTTTopic, TopicHandlers } from './mqtt.model';
 /**
  * MQTTAPI handles all low level MQTT related tasks and scheduling.

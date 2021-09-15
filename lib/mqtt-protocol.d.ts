@@ -22,7 +22,7 @@ declare class FixedDataSendState {
     packets_received: number;
     retries: number;
     constructor(data: Buffer[]);
-    readonly total_packets: number;
+    get total_packets(): number;
     tranfser_finished(): boolean;
     retry(): boolean;
 }
