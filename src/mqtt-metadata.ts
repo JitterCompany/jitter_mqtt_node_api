@@ -3,6 +3,7 @@ type Topic = string;
 export interface ProgressData {
   progress: number;
   totalPackets: number;
+  timestamp: Date;
 }
 type ClientProgressMap = Map<Topic, ProgressData>
 
@@ -30,7 +31,8 @@ export class MQTTMetaData {
     const progressData = clientProgress.get(topic);
     clientProgress.set(topic, {
       progress: progress,
-      totalPackets: total || (progressData ? progressData.totalPackets : -1)
+      totalPackets: total || (progressData ? progressData.totalPackets : -1),
+      timestamp: new Date()
     });
     this.progressStore.set(id, clientProgress);
 
@@ -51,7 +53,8 @@ export class MQTTMetaData {
     const progressData = clientProgress.get(topic);
     clientProgress.set(topic, {
       progress: progressData ? progressData.totalPackets : -1,
-      totalPackets: progressData ? progressData.totalPackets : -1
+      totalPackets: progressData ? progressData.totalPackets : -1,
+      timestamp: new Date()
     });
     this.progressStore.set(id, clientProgress);
 

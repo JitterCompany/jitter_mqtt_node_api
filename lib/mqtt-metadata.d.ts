@@ -1,6 +1,7 @@
 export interface ProgressData {
     progress: number;
     totalPackets: number;
+    timestamp: Date;
 }
 export declare type ProgressEventCallback = (id: string, progressData: [string, ProgressData][]) => void;
 export declare class MQTTMetaData {
