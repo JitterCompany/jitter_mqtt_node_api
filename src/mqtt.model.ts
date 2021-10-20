@@ -79,3 +79,9 @@ export interface TopicReturnDescriptor {
 }
 
 export type TopicReturnMessage = TopicReturnDescriptor | TopicReturnDescriptor[] | void;
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+  random: string;
+}

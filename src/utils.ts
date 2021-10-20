@@ -1,6 +1,7 @@
 import { crc32 } from 'crc';
 import { PBKDF2, algo, enc } from 'crypto-js';
 import * as crypto from 'crypto';
+import { LoginCredentials } from '.';
 
 export namespace utils {
 
@@ -55,12 +56,6 @@ export namespace utils {
     const hash = enc.Base64.stringify(word);
     const pw_store = `PBKDF2$sha256$${iterations}$${salt}$${hash}`;
     return pw_store;
-  }
-
-  export interface LoginCredentials {
-    username: string;
-    password: string;
-    random: string;
   }
 
   export function newMQttLoginCredentials(): LoginCredentials {

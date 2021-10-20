@@ -71,4 +71,9 @@ export interface TopicReturnDescriptor {
     type?: TopicType;
 }
 export declare type TopicReturnMessage = TopicReturnDescriptor | TopicReturnDescriptor[] | void;
+export interface LoginCredentials {
+    username: string;
+    password: string;
+    random: string;
+}
 //# sourceMappingURL=mqtt.model.d.ts.map

@@ -4,6 +4,7 @@ import { MQTTClient, MQTTTopic, TopicHandlers, TopicHandler } from './mqtt.model
 import { MQTTWorker, TopicHandlerWorker } from './mqtt-protocol';
 import { utils } from './utils';
 import { MQTTMetaData } from './mqtt-metadata';
+import { LoginCredentials } from '.';
 
 const ANON_MQTT_USERNAME = 'anon';
 const DEFAULT_MAX_PACKET_SIZE = 1024; // bytes
@@ -80,7 +81,7 @@ export class MQTTAPI {
    * @param clientID
    * @param credentials
    */
-  private insertNewClient(clientID: string, credentials: utils.LoginCredentials) {
+  public insertNewClient(clientID: string, credentials: LoginCredentials) {
     const newClient: MQTTClient = {
       _id: credentials.username,
       password: utils.password_encoding(credentials.password),
@@ -89,6 +90,16 @@ export class MQTTAPI {
       verified: false
     };
     this.clientCollection.insert(newClient);
+  }
+
+  /**
+   * Remove MQTTClient from client collections
+   * @param username - mqtt username
+   *
+   * @returns number of clients removed (1 or 0)
+   */
+  public deleteMQTTClient(username: string): number {
+    return this.clientCollection.remove({_id: username});
   }
 
   private createHandlerMap(handlers: TopicHandlers) {

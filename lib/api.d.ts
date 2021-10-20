@@ -1,5 +1,6 @@
 /// <reference types="meteor" />
 import { MQTTClient, MQTTTopic, TopicHandlers } from './mqtt.model';
+import { LoginCredentials } from '.';
 /**
  * MQTTAPI handles all low level MQTT related tasks and scheduling.
  */
@@ -32,7 +33,14 @@ export declare class MQTTAPI {
      * @param clientID
      * @param credentials
      */
-    private insertNewClient;
+    insertNewClient(clientID: string, credentials: LoginCredentials): void;
+    /**
+     * Remove MQTTClient from client collections
+     * @param username
+     *
+     * Returns number of clients removed (1 or 0)
+     */
+    deleteMQTTClient(username: string): number;
     private createHandlerMap;
     /**
      * Add or update the necessary documents for the MQTT Broker
