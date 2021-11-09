@@ -248,6 +248,7 @@ export class MQTTWorker {
               }
             });
           } else {
+            // TODO: what if desc.type === 'fixeddata' FIXME
             const desc = <TopicReturnDescriptor>ret;
             const topic = `t/${this.username}/${desc.topicname}`;
             this.mqtt_client.publish(topic, desc.message);

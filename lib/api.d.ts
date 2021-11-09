@@ -23,6 +23,7 @@ export declare class MQTTAPI {
      * packets of (max) this size
      */
     constructor(broker_url: string, clientCollection: Mongo.Collection<MQTTClient>, topicCollection: Mongo.Collection<MQTTTopic>, handlers: TopicHandlers, maxPacketSize?: number);
+    publish(username: string, topic: string, payload: any): void;
     /**
      * Get Progress Data for all FixedData topics for a specific `username`
      * @param username mqtt username of client
@@ -36,9 +37,9 @@ export declare class MQTTAPI {
     insertNewClient(clientID: string, credentials: LoginCredentials): void;
     /**
      * Remove MQTTClient from client collections
-     * @param username
+     * @param username - mqtt username
      *
-     * Returns number of clients removed (1 or 0)
+     * @returns number of clients removed (1 or 0)
      */
     deleteMQTTClient(username: string): number;
     private createHandlerMap;

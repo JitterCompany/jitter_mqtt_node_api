@@ -68,6 +68,10 @@ export class MQTTAPI {
       this.mqtt_client.on('message', (topic, message) => this.topicDispatch(topic, message));
   }
 
+  public publish(username: string, topic: string, payload) {
+    this.mqtt_client.publish(`t/${username}/${topic}`, payload);
+  }
+
   /**
    * Get Progress Data for all FixedData topics for a specific `username`
    * @param username mqtt username of client
