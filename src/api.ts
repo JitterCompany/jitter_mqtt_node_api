@@ -125,7 +125,7 @@ export class MQTTAPI {
     // Additionaly arbitrary user defined topics and handlers.
     handlers.topic_list.forEach(topic_desc => {
 
-      const handler: TopicHandler = handlers['topic_' +  topic_desc.topicName.replace('/', '_')];
+      const handler: TopicHandler = handlers['topic_' +  topic_desc.topicName.replace('/', '_').replace('#', 'x')];
       let wrapped_handler;
       if (!handler) {
         throw new Error(`no handler for topic [${topic_desc.topicName}].
