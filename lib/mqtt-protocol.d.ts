@@ -3,7 +3,7 @@ import * as mqtt from 'mqtt';
 import { MQTTTest, MQTTAckTest } from './mqtt-protocol-test';
 import { TopicReturnDescriptor } from './mqtt.model';
 import { MQTTMetaData } from './mqtt-metadata';
-export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) => TopicReturnDescriptor[] | TopicReturnDescriptor | undefined | void;
+export declare type TopicHandlerWorker = (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => TopicReturnDescriptor[] | TopicReturnDescriptor | undefined | void;
 declare class FixedDataReceiveState {
     total_packets: number;
     data: Buffer[];
@@ -63,7 +63,7 @@ export declare class MQTTWorker {
     topic_selftest(payload: Buffer): void;
     topic_acktest_ack(payload: Buffer): void;
     topic_acktest(payload: Buffer): void;
-    addTask(topicHandler: TopicHandlerWorker, payload_in: Buffer): void;
+    addTask(topicHandler: TopicHandlerWorker, topic: string, payload_in: Buffer): void;
     fixedDataProgessHandler(topic: string, payload: Buffer): number;
     fixedDataAckHandler(topic: string, payload: Buffer): boolean;
     fixedDataReceiveHandler(topic: string, payload: Buffer): Buffer | undefined;

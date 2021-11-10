@@ -31,7 +31,7 @@ export interface MQTTTopic {
   topics: TopicMap;
 }
 
-export type TopicHandler = (username: string, payload?: Buffer) => TopicReturnMessage;
+export type TopicHandler = (username: string, topic: string, payload?: Buffer) => TopicReturnMessage;
 
 /**
  * TopicHandlers interface needs to be implemented by an object that is passed to

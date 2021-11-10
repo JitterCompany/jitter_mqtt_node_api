@@ -114,12 +114,12 @@ export class MQTTAPI {
       'verify': this.verify_protocol_handler,
       'hi': this.hi_protocol_handler,
       'bye': handlers.topic_bye,
-      'fixeddatatest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest(payload),
-      'acktest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest(payload),
-      'acktest/ack': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest_ack(payload),
-      'selftest': (username: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload),
-      '+/ack':  (username: string, payload: Buffer, worker: MQTTWorker) => undefined, // special case: handled in topicDispatch
-      '+/prog':  (username: string, payload: Buffer, worker: MQTTWorker) => undefined // special case: handled in topicDispatch
+      'fixeddatatest': (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => worker.topic_fixeddatatest(payload),
+      'acktest': (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest(payload),
+      'acktest/ack': (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => worker.topic_acktest_ack(payload),
+      'selftest': (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => worker.topic_selftest(payload),
+      '+/ack':  (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => undefined, // special case: handled in topicDispatch
+      '+/prog':  (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => undefined // special case: handled in topicDispatch
     };
 
     // Additionaly arbitrary user defined topics and handlers.
@@ -133,15 +133,15 @@ export class MQTTAPI {
       }
 
       if (topic_desc.type && topic_desc.type === 'fixeddata') {
-        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
-          const topic = `f/${username}/${topic_desc.topicName}`;
-          const data = worker.fixedDataReceiveHandler(topic, payload);
+        wrapped_handler = (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => {
+          const ftopic = `f/${username}/${topic_desc.topicName}`;
+          const data = worker.fixedDataReceiveHandler(ftopic, payload);
           if (data) {
-            return handler(username, data);
+            return handler(username, topic, data);
           }
         }
       } else {
-        wrapped_handler = (username: string, payload: Buffer, worker: MQTTWorker) => handler(username, payload);
+        wrapped_handler = (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => handler(username, topic, payload);
       }
 
       topicMap[topic_desc.topicName] = wrapped_handler;
@@ -226,7 +226,7 @@ export class MQTTAPI {
       const ackM = topic.match('f\/([^\/]*)\/(.*)/ack');
       if (ackM) {
         const topicname = ackM[2];
-        handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+        handler = (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => {
           const ltopic = `t/${username}/${topicname}`;
           const done = worker.fixedDataAckHandler(ltopic, payload);
           if (done) {
@@ -242,7 +242,7 @@ export class MQTTAPI {
       const progM = topic.match('f\/([^\/]*)\/(.*)/prog')
       if (progM) {
         const topicname = progM[2];
-        handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+        handler = (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => {
           const progress = payload.readUInt16LE(0);
           const ltopic = `t/${username}/${topicname}`;
           this.metadata.updateProgress(username, ltopic, progress);
@@ -252,7 +252,7 @@ export class MQTTAPI {
     }
 
     if(handler) {
-      worker.addTask(handler, message);
+      worker.addTask(handler, topic, message);
     } else {
       console.error(`No handler for topic '${topicname}'. Username: '${username}'.`);
     }
@@ -260,7 +260,7 @@ export class MQTTAPI {
 
   // Built-in protocol topic handlers
 
-  private hi_protocol_handler = (username: string, payload: Buffer, worker: MQTTWorker) => {
+  private hi_protocol_handler = (username: string, topic: string, payload: Buffer, worker: MQTTWorker) => {
     if (!payload.byteLength) {
       return;
     }
@@ -270,7 +270,7 @@ export class MQTTAPI {
 
     const done = worker.allTransfersFinished() && shouldOffline;
     console.log('can offline: ', done);
-    const r = new Buffer(1);
+    const r = Buffer.alloc(1);
     r.writeUInt8(+done, 0);
     this.mqtt_client.publish(`t/${username}/hi`, r);
   }

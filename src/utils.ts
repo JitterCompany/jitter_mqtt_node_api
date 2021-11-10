@@ -11,7 +11,7 @@ export namespace utils {
 
   export function createFixedDataPacket(data: Buffer, maxPacketSize: number) {
 
-    const checksum = new Buffer(4);
+    const checksum = Buffer.alloc(4);
     checksum.writeUInt32LE(crc32(data), 0);
     data = Buffer.concat([data, checksum]);
 
@@ -21,7 +21,7 @@ export namespace utils {
     }
 
     const packets: Buffer[] = [];
-    const header = new Buffer(4);
+    const header = Buffer.alloc(4);
     header.writeUInt16LE(0, 0);
     header.writeUInt16LE(N, 2);
     for (let i = 0; i < N; i++) {

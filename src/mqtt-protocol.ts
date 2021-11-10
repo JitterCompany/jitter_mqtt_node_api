@@ -5,7 +5,7 @@ import { utils } from './utils';
 import { TopicReturnDescriptor } from './mqtt.model';
 import { MQTTMetaData } from './mqtt-metadata';
 
-export declare type TopicHandlerWorker = (username: string, payload: Buffer, worker: MQTTWorker) =>
+export declare type TopicHandlerWorker = (username: string, topic: string, payload: Buffer, worker: MQTTWorker) =>
 TopicReturnDescriptor[] | TopicReturnDescriptor | undefined | void;
 
 const MAX_TRANSFER_RETRIES = 5;
@@ -74,7 +74,8 @@ class FixedDataSendState {
 
 }
 interface WorkerTask {
-  handler: TopicHandlerWorker
+  handler: TopicHandlerWorker;
+  topic: string;
   payload: Buffer;
 }
 
@@ -122,7 +123,7 @@ export class MQTTWorker {
   }
 
   protected createSendTransfer(topic: string, data: any) {
-    const packets = utils.createFixedDataPacket(new Buffer(data), this.max_packet_size);
+    const packets = utils.createFixedDataPacket(Buffer.from(data), this.max_packet_size);
     this.sendPackets(topic, packets);
   }
 
@@ -199,15 +200,15 @@ export class MQTTWorker {
           this.topicSendState.delete(sendtopic);
         }
         const test_str = 'TestData';
-        const data = utils.createFixedDataPacket(new Buffer(test_str.repeat(6)), 8);
+        const data = utils.createFixedDataPacket(Buffer.from(test_str.repeat(6)), 8);
         console.log('send acktest data to ', sendtopic);
         this.sendPackets(sendtopic, data);
       }
     }
   }
 
-  public addTask(topicHandler: TopicHandlerWorker, payload_in: Buffer) {
-    this.queue.push({handler: topicHandler, payload: payload_in});
+  public addTask(topicHandler: TopicHandlerWorker, topic: string, payload_in: Buffer) {
+    this.queue.push({handler: topicHandler, topic, payload: payload_in});
 
     if (this.workerRunning) {
       return;
@@ -232,7 +233,7 @@ export class MQTTWorker {
           processNext();
         };
 
-        const ret = item.handler(this.username, item.payload, this);
+        const ret = item.handler(this.username, topic, item.payload, this);
 
         if (ret) {
           if (Array.isArray(ret)) {
@@ -325,7 +326,7 @@ export class MQTTWorker {
 
     const packet_number = payload.readUInt16LE(0);
     const total_packets = payload.readUInt16LE(2);
-    const rmsg = new Buffer(2);
+    const rmsg = Buffer.alloc(2);
 
     let valid = true;
 

@@ -28,7 +28,7 @@ export interface MQTTTopic {
     _id?: string;
     topics: TopicMap;
 }
-export declare type TopicHandler = (username: string, payload?: Buffer) => TopicReturnMessage;
+export declare type TopicHandler = (username: string, topic: string, payload?: Buffer) => TopicReturnMessage;
 /**
  * TopicHandlers interface needs to be implemented by an object that is passed to
  * the MQTTAPI. The interface contains the topic handlers for the topics that form the
