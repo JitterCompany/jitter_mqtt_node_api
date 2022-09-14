@@ -27,13 +27,17 @@ export class MQTTAPI {
    * @param handlers object that implements `TopicHandlers` interface
    * @param maxPacketSize? optional packet size in bytes. Fixeddata transfers will be split in
    * packets of (max) this size
+   * @param username? mqtt username, defaults to 'server'
+   * @param password? mqtt password, defaults to 30-character randomly generated
    */
   constructor(
     broker_url: string,
     private clientCollection: Mongo.Collection<MQTTClient>,
     private topicCollection: Mongo.Collection<MQTTTopic>,
     private handlers: TopicHandlers,
-    maxPacketSize?: number
+    maxPacketSize?: number,
+    username?: string,
+    password?: string,
   ) {
 
     // Override default max packet size if provided
@@ -47,8 +51,8 @@ export class MQTTAPI {
     this.topicMap = this.createHandlerMap(handlers);
 
     const options: mqtt.IClientOptions = {
-      username: 'server',
-      password: utils.randomSecret(30),
+      username: username || 'server',
+      password: password || utils.randomSecret(30),
     };
 
     this.prepareBrokerDatabase(options);

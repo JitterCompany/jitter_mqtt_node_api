@@ -21,8 +21,10 @@ export declare class MQTTAPI {
      * @param handlers object that implements `TopicHandlers` interface
      * @param maxPacketSize? optional packet size in bytes. Fixeddata transfers will be split in
      * packets of (max) this size
+     * @param username? mqtt username, defaults to 'server'
+     * @param password? mqtt password, defaults to 30-character randomly generated
      */
-    constructor(broker_url: string, clientCollection: Mongo.Collection<MQTTClient>, topicCollection: Mongo.Collection<MQTTTopic>, handlers: TopicHandlers, maxPacketSize?: number);
+    constructor(broker_url: string, clientCollection: Mongo.Collection<MQTTClient>, topicCollection: Mongo.Collection<MQTTTopic>, handlers: TopicHandlers, maxPacketSize?: number, username?: string, password?: string);
     publish(username: string, topic: string, payload: any): void;
     /**
      * Get Progress Data for all FixedData topics for a specific `username`
