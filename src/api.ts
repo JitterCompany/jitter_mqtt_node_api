@@ -203,6 +203,28 @@ export class MQTTAPI {
     return this.workers[username];
   }
 
+  private getTopicHandler(topicname: string) {
+
+    // Try to find an exact match
+    let handler = this.topicMap[topicname];
+    if(handler) {
+      return handler;
+    }
+
+    // Try to find a wildcard match (topic ends in '#')
+    for(let topic in this.topicMap) {
+      let index = topic.indexOf('#');
+      if(index+1 == topic.length) {
+        if(topic.substring(0, index) == topicname.substring(0, index)) {
+          return this.topicMap[topic];
+        }
+      }
+    }
+
+    // No handler found
+    return undefined;
+  }
+
   /**
    * Parse incomming topic name and dispatch message to correct handler
    * using client-specific worker.
@@ -223,7 +245,7 @@ export class MQTTAPI {
       return;
     }
 
-    let handler = this.topicMap[topicname];
+    let handler = this.getTopicHandler(topicname);
 
     // check if we need to use ack handler
     if (!handler) {

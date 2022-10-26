@@ -55,6 +55,7 @@ export declare class MQTTAPI {
      * @param username unique client identifier
      */
     private getWorker;
+    private getTopicHandler;
     /**
      * Parse incomming topic name and dispatch message to correct handler
      * using client-specific worker.

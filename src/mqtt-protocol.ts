@@ -233,27 +233,31 @@ export class MQTTWorker {
           processNext();
         };
 
-        const ret = item.handler(this.username, topic, item.payload, this);
+        try {
+          const ret = item.handler(this.username, topic, item.payload, this);
 
-        if (ret) {
-          if (Array.isArray(ret)) {
-            (<TopicReturnDescriptor[]>ret).forEach((desc: TopicReturnDescriptor) => {
-              if (!desc) {
-                return;
-              }
+          if (ret) {
+            if (Array.isArray(ret)) {
+              (<TopicReturnDescriptor[]>ret).forEach((desc: TopicReturnDescriptor) => {
+                if (!desc) {
+                  return;
+                }
+                const topic = `t/${this.username}/${desc.topicname}`;
+                if (desc.type && desc.type === 'fixeddata') {
+                  this.createSendTransfer(topic, desc.message);
+                } else {
+                  this.mqtt_client.publish(topic, desc.message);
+                }
+              });
+            } else {
+              // TODO: what if desc.type === 'fixeddata' FIXME
+              const desc = <TopicReturnDescriptor>ret;
               const topic = `t/${this.username}/${desc.topicname}`;
-              if (desc.type && desc.type === 'fixeddata') {
-                this.createSendTransfer(topic, desc.message);
-              } else {
-                this.mqtt_client.publish(topic, desc.message);
-              }
-            });
-          } else {
-            // TODO: what if desc.type === 'fixeddata' FIXME
-            const desc = <TopicReturnDescriptor>ret;
-            const topic = `t/${this.username}/${desc.topicname}`;
-            this.mqtt_client.publish(topic, desc.message);
+              this.mqtt_client.publish(topic, desc.message);
+            }
           }
+        } catch(e) {
+          console.error(`Exception in handler for topic ${topic}:`, e);
         }
 
         unblock(); // in case the handler didn't already do it
